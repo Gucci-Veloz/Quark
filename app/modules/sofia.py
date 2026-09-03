@@ -71,7 +71,7 @@ async def query_data(
         logger.error(f"Error en consulta de SofIA: {str(e)}", {"query": query})
         raise HTTPException(status_code=500, detail=f"Error al procesar consulta: {str(e)}")
 
-@router.post("/store", response_model=Item)
+@router.post("/store", response_model=Item, status_code=201)
 async def store_data(
     data: Dict[str, Any] = Body(..., description="Datos a almacenar"),
 ):
@@ -224,15 +224,14 @@ async def list_collections():
     Lista todas las colecciones disponibles para SofIA.
     """
     try:
-        collections = db_manager.collections
-        return collections
+        return {key: collection.name for key, collection in db_manager.collections.items()}
     except Exception as e:
         logger.error(f"Error al listar colecciones para SofIA: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error al listar colecciones: {str(e)}")
 
 @router.post("/batch", response_model=Dict[str, Any])
 async def batch_operation(
-    operations: List[Dict[str, Any]] = Body(..., description="Lista de operaciones a realizar"),
+    operations: List[Dict[str, Any]] = Body(..., embed=True, description="Lista de operaciones a realizar"),
 ):
     """
     Realiza múltiples operaciones en una sola llamada.

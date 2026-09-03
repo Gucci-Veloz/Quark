@@ -90,7 +90,7 @@ Para obtener un token JWT:
 ```bash
 curl -X POST "http://localhost:8000/token" \
      -H "Content-Type: application/x-www-form-urlencoded" \
-     -d "username=usuario&password=sofia2023"
+     -d "username=admin&password=sofia2023"
 ```
 
 ## Integración con SofIA

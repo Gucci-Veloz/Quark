@@ -1,6 +1,6 @@
 import chromadb
 from chromadb.config import Settings
-from chromadb.errors import InvalidCollectionException  # Add this import
+from chromadb.errors import NotFoundError
 from app.config import CHROMA_DB_DIR, COLLECTIONS
 from app.utils.embeddings import get_embedding_function
 
@@ -27,7 +27,7 @@ class ChromaDBManager:
                     name=name,
                     embedding_function=self.embedding_function
                 )
-            except InvalidCollectionException:  # Use the imported exception directly
+            except NotFoundError:
                 # Si no existe, crearla
                 collection = self.client.create_collection(
                     name=name,

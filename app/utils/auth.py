@@ -22,7 +22,9 @@ class TokenData(BaseModel):
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # Sistema de seguridad
-security = HTTPBearer()
+# auto_error=False para que la ausencia de header Bearer no corte la petición
+# antes de que validate_access pueda intentar la API Key como alternativa.
+security = HTTPBearer(auto_error=False)
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
@@ -53,16 +55,23 @@ def get_password_hash(password: str) -> str:
     """
     return pwd_context.hash(password)
 
-async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Dict[str, Any]:
+async def get_current_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+) -> Optional[Dict[str, Any]]:
     """
     Valida un token JWT y devuelve los datos del usuario.
+    Devuelve None si no se envió un header Bearer, para permitir que
+    validate_access intente la API Key como alternativa.
     """
+    if credentials is None:
+        return None
+
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Credenciales inválidas",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    
+
     try:
         token = credentials.credentials
         payload = jwt.decode(token, AUTH_SECRET_KEY, algorithms=[AUTH_ALGORITHM])
@@ -79,25 +88,22 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     # Por ahora, simplemente devolvemos los datos del token
     return {"username": token_data.username, "scopes": token_data.scopes}
 
-async def get_api_key(api_key: str = Depends(api_key_header)) -> Dict[str, Any]:
+async def get_api_key(api_key: Optional[str] = Depends(api_key_header)) -> Optional[Dict[str, Any]]:
     """
     Valida una API Key y devuelve los datos asociados.
+    Devuelve None si no se proporcionó o no es válida, en vez de lanzar,
+    para permitir que validate_access intente el JWT como alternativa
+    (FastAPI resuelve todas las dependencias declaradas en validate_access,
+    así que una excepción aquí cortaría también el camino de JWT válido).
     """
     if api_key is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="API Key no proporcionada",
-        )
-    
+        return None
+
     # Comprobar si es la API Key de SofIA
     if api_key == SOFIA_API_KEY:
         return {"client": "sofia", "scopes": ["read", "write"]}
-    
-    # Si no es una API Key válida
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="API Key inválida",
-    )
+
+    return None
 
 async def validate_access(
     credentials: Union[Dict[str, Any], None] = Depends(get_current_user),

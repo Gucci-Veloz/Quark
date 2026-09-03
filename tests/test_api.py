@@ -37,7 +37,7 @@ def test_token_endpoint(client):
     """Prueba la obtención de token."""
     response = client.post(
         "/token",
-        data={"username": "testuser", "password": "sofia2023"}
+        data={"username": "admin", "password": "sofia2023"}
     )
     assert response.status_code == 200
     data = response.json()
@@ -50,7 +50,7 @@ def test_token_endpoint_invalid_password(client):
     """Prueba la obtención de token con contraseña inválida."""
     response = client.post(
         "/token",
-        data={"username": "testuser", "password": "wrong_password"}
+        data={"username": "admin", "password": "wrong_password"}
     )
     assert response.status_code == 401
 
@@ -228,5 +228,8 @@ def test_sofia_delete(client, api_key_headers, created_test_item):
     )
     
     query_result = query_response.json()
-    # El item eliminado no debería estar en los resultados o debería tener una distancia grande
-    assert len(query_result["items"]) == 0 or query_result["distances"][0] > 0.5 
+    # El item eliminado no debería aparecer entre los resultados. No se puede
+    # asumir que la colección esté vacía: otros tests reutilizan el mismo texto
+    # de prueba y comparten la misma colección durante la sesión de pytest.
+    returned_ids = [item["id"] for item in query_result["items"]]
+    assert created_test_item["id"] not in returned_ids 

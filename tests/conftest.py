@@ -1,25 +1,29 @@
 import os
-import pytest
+import shutil
 import tempfile
-from pathlib import Path
-from fastapi.testclient import TestClient
 
-from app.main import app
-from app.utils.auth import create_access_token
-from app.config import SOFIA_API_KEY, AUTH_SECRET_KEY
+import pytest
 
-# Sobrescribir la clave API de SofIA para pruebas
+# Estas variables deben fijarse ANTES de importar app.main: app.config las lee
+# como constantes de módulo con os.getenv() en el momento del import, así que
+# sobreescribir os.environ después de ese punto no tiene efecto (ver CLAUDE.md).
 os.environ["SOFIA_API_KEY"] = "test_sofia_api_key"
+_TEMP_CHROMA_DIR = tempfile.mkdtemp(prefix="quark_test_chroma_")
+os.environ["CHROMA_DB_DIR"] = _TEMP_CHROMA_DIR
 
-# Crear un directorio temporal para ChromaDB durante las pruebas
-@pytest.fixture(scope="session")
-def temp_chroma_dir():
-    with tempfile.TemporaryDirectory() as temp_dir:
-        os.environ["CHROMA_DB_DIR"] = temp_dir
-        yield temp_dir
+from fastapi.testclient import TestClient  # noqa: E402
+
+from app.main import app  # noqa: E402
+from app.utils.auth import create_access_token  # noqa: E402
+
+
+def pytest_sessionfinish(session, exitstatus):
+    """Limpia el directorio temporal de ChromaDB usado durante las pruebas."""
+    shutil.rmtree(_TEMP_CHROMA_DIR, ignore_errors=True)
+
 
 @pytest.fixture
-def client(temp_chroma_dir):
+def client():
     """Cliente de prueba para la API FastAPI."""
     with TestClient(app) as test_client:
         yield test_client
@@ -59,4 +63,4 @@ def created_test_item(client, api_key_headers, test_item):
     response = client.post("/sofia/store", headers=api_key_headers, json=test_item)
     if response.status_code != 201:
         pytest.fail(f"Error al crear item de prueba: {response.text}")
-    return response.json() 
+    return response.json()

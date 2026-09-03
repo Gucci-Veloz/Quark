@@ -4,16 +4,27 @@ from app.config import AIRTABLE_API_KEY, AIRTABLE_BASE_ID, AIRTABLE_TABLE_ID
 
 class AirtableManager:
     """Gestor de conexión y operaciones con Airtable."""
-    
+
     def __init__(self):
-        """Inicializa la conexión con Airtable."""
-        self.api = Api(AIRTABLE_API_KEY)
-        self.table = Table(AIRTABLE_API_KEY, AIRTABLE_BASE_ID, AIRTABLE_TABLE_ID)
-    
+        """Inicializa la conexión con Airtable, si hay credenciales configuradas."""
+        if AIRTABLE_API_KEY and AIRTABLE_BASE_ID:
+            self.api = Api(AIRTABLE_API_KEY)
+            self.table = Table(AIRTABLE_API_KEY, AIRTABLE_BASE_ID, AIRTABLE_TABLE_ID)
+        else:
+            self.api = None
+            self.table = None
+
+    def _require_table(self) -> Table:
+        if self.table is None:
+            raise ValueError(
+                "Airtable no está configurado: faltan AIRTABLE_API_KEY/AIRTABLE_BASE_ID"
+            )
+        return self.table
+
     def create_record(self, fields: Dict[str, Any]) -> Dict[str, Any]:
         """Crea un nuevo registro en Airtable."""
         try:
-            record = self.table.create(fields)
+            record = self._require_table().create(fields)
             return cast(Dict[str, Any], record)
         except Exception as e:
             raise ValueError(f"Error al crear registro en Airtable: {str(e)}")
@@ -21,7 +32,7 @@ class AirtableManager:
     def get_record(self, record_id: str) -> Dict[str, Any]:
         """Obtiene un registro específico de Airtable."""
         try:
-            record = self.table.get(record_id)
+            record = self._require_table().get(record_id)
             return cast(Dict[str, Any], record)
         except Exception as e:
             raise ValueError(f"Error al obtener registro de Airtable: {str(e)}")
@@ -29,7 +40,7 @@ class AirtableManager:
     def list_records(self, formula: Optional[str] = None, max_records: Optional[int] = None) -> Sequence[Dict[str, Any]]:
         """Lista registros de Airtable con filtros opcionales."""
         try:
-            records = self.table.all(formula=formula, max_records=max_records)
+            records = self._require_table().all(formula=formula, max_records=max_records)
             return cast(Sequence[Dict[str, Any]], records)
         except Exception as e:
             raise ValueError(f"Error al listar registros de Airtable: {str(e)}")
@@ -37,7 +48,7 @@ class AirtableManager:
     def update_record(self, record_id: str, fields: Dict[str, Any]) -> Dict[str, Any]:
         """Actualiza un registro existente en Airtable."""
         try:
-            record = self.table.update(record_id, fields)
+            record = self._require_table().update(record_id, fields)
             return cast(Dict[str, Any], record)
         except Exception as e:
             raise ValueError(f"Error al actualizar registro en Airtable: {str(e)}")
@@ -45,7 +56,7 @@ class AirtableManager:
     def delete_record(self, record_id: str) -> Dict[str, Any]:
         """Elimina un registro de Airtable."""
         try:
-            result = self.table.delete(record_id)
+            result = self._require_table().delete(record_id)
             return cast(Dict[str, Any], result)
         except Exception as e:
             raise ValueError(f"Error al eliminar registro de Airtable: {str(e)}")
