@@ -49,3 +49,6 @@ Thumbs.db
 
 # Instaladores/binarios sueltos (no pertenecen al repo)
 *.exe
+
+# Config local de Claude Code (preferencias personales, no de equipo)
+.claude/settings.local.json
