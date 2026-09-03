@@ -1,21 +1,21 @@
 {
   "openapi": "3.0.0",
   "info": {
-    "title": "API de SofÍA - DELETE",
+    "title": "API de acceso externo - DELETE",
     "version": "1.0.0",
-    "description": "API para eliminar datos específicos en SofÍA de manera segura y eficiente."
+    "description": "API para eliminar datos específicos de manera segura y eficiente para el cliente externo."
   },
   "servers": [
     {
       "url": "https://api.quark.ai/v1",
-      "description": "Servidor principal de SofÍA"
+      "description": "Servidor principal de acceso externo"
     }
   ],
   "paths": {
-    "/sofia": {
+    "/external": {
       "delete": {
-        "summary": "Eliminar información específica en SofÍA",
-        "operationId": "deleteSofiaItem",
+        "summary": "Eliminar información específica para el cliente externo",
+        "operationId": "deleteExternalItem",
         "parameters": [
           {
             "name": "tipo_eliminacion",

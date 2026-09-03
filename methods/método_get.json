@@ -1,21 +1,21 @@
 {
   "openapi": "3.0.0",
   "info": {
-    "title": "API de SofÍA - Quark",
+    "title": "API de acceso externo - Quark",
     "version": "1.0.0",
-    "description": "API para la gestión estratégica, productividad y motivación con SofÍA"
+    "description": "API para la gestión estratégica, productividad y motivación para el cliente externo"
   },
   "servers": [
     {
       "url": "https://api.quark.ai/v1",
-      "description": "Servidor principal de SofÍA"
+      "description": "Servidor principal de acceso externo"
     }
   ],
   "paths": {
-    "/sofia": {
+    "/external": {
       "get": {
-        "summary": "Obtener información consolidada de SofÍA",
-        "operationId": "getSofiaData",
+        "summary": "Obtener información consolidada para el cliente externo",
+        "operationId": "getExternalData",
         "parameters": [
           {
             "name": "modulo",
@@ -41,7 +41,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Datos de SofÍA",
+            "description": "Datos del cliente externo",
             "content": {
               "application/json": {
                 "schema": {

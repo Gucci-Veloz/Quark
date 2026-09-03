@@ -12,7 +12,7 @@ POST /token
 
 **Cuerpo de la petición**
 ```
-username=usuario&password=sofia2023
+username=usuario&password=abundancia2026
 ```
 
 **Respuesta**
@@ -58,12 +58,12 @@ POST /identity
 }
 ```
 
-## Módulo SofIA
+## Módulo de acceso externo
 
 ### Consulta semántica
 
 ```http
-POST /sofia/query
+POST /external/query
 ```
 
 **Encabezados**
@@ -107,7 +107,7 @@ X-API-Key: {api_key}
 ### Almacenar información
 
 ```http
-POST /sofia/store
+POST /external/store
 ```
 
 **Encabezados**
@@ -139,7 +139,7 @@ X-API-Key: {api_key}
     "due_date": "2023-04-30",
     "created_at": "2023-03-15T10:30:00Z",
     "updated_at": "2023-03-15T10:30:00Z",
-    "source": "sofia"
+    "external_source": "quark_api"
   }
 }
 ```
@@ -147,7 +147,7 @@ X-API-Key: {api_key}
 ### Operaciones por lotes
 
 ```http
-POST /sofia/batch
+POST /external/batch
 ```
 
 **Encabezados**
@@ -206,7 +206,7 @@ X-API-Key: {api_key}
           "priority": "medium",
           "created_at": "2023-03-15T10:30:00Z",
           "updated_at": "2023-03-15T10:30:00Z",
-          "source": "sofia_batch"
+          "external_source": "quark_api_batch"
         }
       }
     },
@@ -229,7 +229,7 @@ X-API-Key: {api_key}
         "metadata": {
           "status": "completed",
           "updated_at": "2023-03-15T10:30:00Z",
-          "last_update_source": "sofia_batch"
+          "last_update_source": "quark_api_batch"
         }
       }
     }
@@ -241,7 +241,7 @@ X-API-Key: {api_key}
 ### Consolidación de datos
 
 ```http
-POST /sofia/consolidate
+POST /external/consolidate
 ```
 
 **Encabezados**

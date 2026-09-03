@@ -1,21 +1,21 @@
 {
   "openapi": "3.0.0",
   "info": {
-    "title": "API de SofÍA - PUT",
+    "title": "API de acceso externo - PUT",
     "version": "1.0.0",
-    "description": "API para modificar datos existentes en SofÍA de manera eficiente."
+    "description": "API para modificar datos existentes de manera eficiente para el cliente externo."
   },
   "servers": [
     {
       "url": "https://api.quark.ai/v1",
-      "description": "Servidor principal de SofÍA"
+      "description": "Servidor principal de acceso externo"
     }
   ],
   "paths": {
-    "/sofia": {
+    "/external": {
       "put": {
-        "summary": "Actualizar información específica en SofÍA",
-        "operationId": "updateSofiaItem",
+        "summary": "Actualizar información específica para el cliente externo",
+        "operationId": "updateExternalItem",
         "requestBody": {
           "required": true,
           "content": {
@@ -53,7 +53,7 @@
                   },
                   "historial_modificaciones": {
                     "type": "object",
-                    "description": "Registro de cambios recientes en SofÍA",
+                    "description": "Registro de cambios recientes",
                     "properties": {
                       "ultima_modificacion": { "type": "string", "format": "date-time" },
                       "usuario": { "type": "string" },
@@ -63,7 +63,7 @@
                   },
                   "decisiones_inteligentes": {
                     "type": "object",
-                    "description": "Modificación de decisiones estratégicas de SofÍA",
+                    "description": "Modificación de decisiones estratégicas",
                     "properties": {
                       "accion_sugerida": { "type": "string" },
                       "respuesta_usuario": { "type": "string" },
@@ -73,7 +73,7 @@
                   },
                   "automatizacion_personalizada": {
                     "type": "object",
-                    "description": "Personalización de automatizaciones sugeridas por SofÍA",
+                    "description": "Personalización de automatizaciones sugeridas",
                     "properties": {
                       "tarea_id": { "type": "string" },
                       "regla_original": { "type": "string" },

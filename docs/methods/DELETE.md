@@ -17,12 +17,12 @@ DELETE /identity/{item_id}
 }
 ```
 
-## Módulo SofIA
+## Módulo de acceso externo
 
 ### Eliminar información
 
 ```http
-DELETE /sofia/delete/{collection_key}/{item_id}
+DELETE /external/delete/{collection_key}/{item_id}
 ```
 
 **Encabezados**

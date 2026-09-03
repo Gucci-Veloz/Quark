@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Descripción general
 
-QUARK es una API construida con FastAPI que actúa como memoria estructurada semántica: usa **ChromaDB** (base de datos vectorial persistida en disco) para guardar texto libre + metadatos y recuperarlos por similitud semántica en lugar de por consultas exactas. Es el backend de datos para un asistente llamado **SofIA**, que consume la API vía un módulo dedicado (`/sofia`) protegido con API Key.
+QUARK es una API construida con FastAPI que actúa como memoria estructurada semántica: usa **ChromaDB** (base de datos vectorial persistida en disco) para guardar texto libre + metadatos y recuperarlos por similitud semántica en lugar de por consultas exactas. Sirve de backend de datos para aplicaciones externas, que consumen la API vía un módulo dedicado (`/external`) protegido con API Key.
 
 ## Comandos
 
@@ -22,7 +22,7 @@ Ejecutar un único test o módulo de tests:
 
 ```bash
 pytest tests/test_api.py -v
-pytest tests/test_api.py::test_sofia_query -v
+pytest tests/test_api.py::test_external_query -v
 pytest -m auth      # tests marcados como auth
 pytest -m api       # tests marcados como api
 ```
@@ -52,21 +52,21 @@ Los esquemas Pydantic de request/response viven todos centralizados en `app/mode
 | `learnings` | `/aprendizajes` |
 | `priorities` | `/prioridad` |
 | `suggestions` | `/sugerencias` |
-| `identity`, `business`, `reminders`, `airtable`, `sofia` | coinciden con el nombre |
+| `identity`, `business`, `reminders`, `airtable`, `external` | coinciden con el nombre |
 
 Tenerlo en cuenta al añadir tests o clientes: la ruta real puede no ser la que uno esperaría por el nombre del módulo.
 
-### Autenticación — solo `/sofia` está protegido
+### Autenticación — solo `/external` está protegido
 
-`app/utils/auth.py` define dos mecanismos: JWT (`Authorization: Bearer ...`, obtenido en `POST /token`) y API Key (`X-API-Key`, comparada contra `SOFIA_API_KEY`). `validate_access` acepta cualquiera de los dos.
+`app/utils/auth.py` define dos mecanismos: JWT (`Authorization: Bearer ...`, obtenido en `POST /token`) y API Key (`X-API-Key`, comparada contra `QUARK_API_KEY`). `validate_access` acepta cualquiera de los dos.
 
-Sin embargo, **de todos los routers, solo `sofia.router` declara `dependencies=[Depends(validate_access)]`**. Los routers de `identity`, `business`, `reminders`, `connections`, `learnings`, `priorities`, `suggestions` y `airtable` no exigen autenticación por sí mismos — quedan abiertos salvo que se les añada explícitamente. Si se agrega un endpoint nuevo en uno de esos módulos y se espera que quede protegido, hay que añadir la dependencia manualmente (como hace `sofia.py`), no asumir que hereda protección global.
+Sin embargo, **de todos los routers, solo `external.router` declara `dependencies=[Depends(validate_access)]`**. Los routers de `identity`, `business`, `reminders`, `connections`, `learnings`, `priorities`, `suggestions` y `airtable` no exigen autenticación por sí mismos — quedan abiertos salvo que se les añada explícitamente. Si se agrega un endpoint nuevo en uno de esos módulos y se espera que quede protegido, hay que añadir la dependencia manualmente (como hace `external.py`), no asumir que hereda protección global.
 
 ### Configuración (`app/config.py`)
 
-Doble definición de settings: una clase `Settings(BaseSettings)` (pydantic-settings, lee `.env`) usada para host/puerto/CORS/admin_password, **y además** constantes sueltas a nivel de módulo (`CHROMA_DB_DIR`, `AUTH_SECRET_KEY`, `SOFIA_API_KEY`, etc.) leídas con `os.getenv(...)` directamente. Los módulos importan mayormente las constantes sueltas, no `Settings`. Si se cambia una variable de entorno relevante hay que actualizarla en ambos sitios si aplica, y recordar que las constantes se evalúan al importar `app.config` — en tests, sobreescribir `os.environ["CHROMA_DB_DIR"]` solo funciona si se hace **antes** de que `app.database` (que instancia `db_manager` a nivel de módulo) sea importado por primera vez (ver `tests/conftest.py`, que fija `CHROMA_DB_DIR` vía fixture de sesión antes de importar `app.main`).
+Doble definición de settings: una clase `Settings(BaseSettings)` (pydantic-settings, lee `.env`) usada para host/puerto/CORS/admin_password, **y además** constantes sueltas a nivel de módulo (`CHROMA_DB_DIR`, `AUTH_SECRET_KEY`, `QUARK_API_KEY`, etc.) leídas con `os.getenv(...)` directamente. Los módulos importan mayormente las constantes sueltas, no `Settings`. Si se cambia una variable de entorno relevante hay que actualizarla en ambos sitios si aplica, y recordar que las constantes se evalúan al importar `app.config` — en tests, sobreescribir `os.environ["CHROMA_DB_DIR"]` solo funciona si se hace **antes** de que `app.database` (que instancia `db_manager` a nivel de módulo) sea importado por primera vez (ver `tests/conftest.py`, que fija `CHROMA_DB_DIR` vía fixture de sesión antes de importar `app.main`).
 
-`AUTH_SECRET_KEY` y `admin_password` tienen defaults inseguros hardcodeados (`insecure_default_key_change_in_production`, `sofia2023`) pensados solo para desarrollo local.
+`AUTH_SECRET_KEY` y `admin_password` tienen defaults inseguros hardcodeados (`insecure_default_key_change_in_production`, `abundancia2026`) pensados solo para desarrollo local.
 
 ### Integración con Airtable
 
@@ -74,7 +74,7 @@ Doble definición de settings: una clase `Settings(BaseSettings)` (pydantic-sett
 
 ### Testing
 
-`tests/conftest.py` fuerza `SOFIA_API_KEY=test_sofia_api_key` y usa un directorio temporal para `CHROMA_DB_DIR` por sesión de tests (fixture `temp_chroma_dir`), de forma que los tests no tocan `data/chroma/` real. Los tests de `test_api.py` usan marcadores `auth`/`api`/`integration` (definidos en `pytest.ini`) y ejercitan la API end-to-end vía `TestClient`, no mocks — las llamadas a `/sofia/*` generan embeddings reales con `sentence-transformers`, así que la primera ejecución puede tardar por la descarga/carga del modelo (`EMBEDDING_MODEL`, default `all-MiniLM-L6-v2`).
+`tests/conftest.py` fuerza `QUARK_API_KEY=test_quark_api_key` y usa un directorio temporal para `CHROMA_DB_DIR` por sesión de tests (fixture `temp_chroma_dir`), de forma que los tests no tocan `data/chroma/` real. Los tests de `test_api.py` usan marcadores `auth`/`api`/`integration` (definidos en `pytest.ini`) y ejercitan la API end-to-end vía `TestClient`, no mocks — las llamadas a `/external/*` generan embeddings reales con `sentence-transformers`, así que la primera ejecución puede tardar por la descarga/carga del modelo (`EMBEDDING_MODEL`, default `all-MiniLM-L6-v2`).
 
 ### Logging
 

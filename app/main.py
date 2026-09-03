@@ -12,7 +12,7 @@ from app.utils.logger import LoggingMiddleware, logger
 
 # Verificar importaciones de módulos
 try:
-    from app.modules import identity, business, reminders, connections, learnings, priorities, suggestions, airtable, sofia
+    from app.modules import identity, business, reminders, connections, learnings, priorities, suggestions, airtable, external
 except ImportError as e:
     logger.critical(f"Error al importar módulos: {e}")
     sys.exit(1)
@@ -70,8 +70,8 @@ app.include_router(suggestions.router)
 # Módulo de integración con Airtable
 app.include_router(airtable.router)
 
-# Módulo de integración con SofIA
-app.include_router(sofia.router)
+# Módulo de acceso externo a QUARK
+app.include_router(external.router)
 
 # Endpoint para autenticación
 @app.post("/token", response_model=Token)
@@ -130,7 +130,7 @@ async def root():
             {"name": "Priorización y Filtrado", "endpoint": "/priorities"},
             {"name": "Sugerencias Inteligentes", "endpoint": "/suggestions"},
             {"name": "Integración con Airtable", "endpoint": "/airtable"},
-            {"name": "Integración con SofIA", "endpoint": "/sofia"}
+            {"name": "Acceso externo a QUARK", "endpoint": "/external"}
         ]
     }
 

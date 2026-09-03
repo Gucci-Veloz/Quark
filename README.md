@@ -12,7 +12,7 @@ Una API construida con FastAPI que funciona como memoria estructurada, utilizand
 6. **Módulo de Priorización y Filtrado**: Gestiona la relevancia y prioridad de la información.
 7. **Módulo de Sugerencias Inteligentes**: Proporciona ideas y conexiones no evidentes.
 8. **Módulo de Integración con Airtable**: Sincroniza datos con Airtable.
-9. **Módulo de Integración con SofIA**: API específica para la integración con SofIA.
+9. **Módulo de Acceso Externo**: API específica para el acceso de aplicaciones externas a QUARK.
 
 ## Requisitos
 
@@ -90,20 +90,20 @@ Para obtener un token JWT:
 ```bash
 curl -X POST "http://localhost:8000/token" \
      -H "Content-Type: application/x-www-form-urlencoded" \
-     -d "username=admin&password=sofia2023"
+     -d "username=admin&password=abundancia2026"
 ```
 
-## Integración con SofIA
+## Acceso externo a QUARK
 
-El módulo de integración con SofIA proporciona los siguientes endpoints:
+El módulo de acceso externo proporciona los siguientes endpoints para aplicaciones externas:
 
-- `/sofia/query`: Consultas semánticas
-- `/sofia/store`: Almacenamiento de datos
-- `/sofia/update/{collection_key}/{item_id}`: Actualización de datos
-- `/sofia/delete/{collection_key}/{item_id}`: Eliminación de datos
-- `/sofia/collections`: Listado de colecciones disponibles
-- `/sofia/batch`: Operaciones por lotes
-- `/sofia/consolidate`: Consolidación de datos de múltiples colecciones
+- `/external/query`: Consultas semánticas
+- `/external/store`: Almacenamiento de datos
+- `/external/update/{collection_key}/{item_id}`: Actualización de datos
+- `/external/delete/{collection_key}/{item_id}`: Eliminación de datos
+- `/external/collections`: Listado de colecciones disponibles
+- `/external/batch`: Operaciones por lotes
+- `/external/consolidate`: Consolidación de datos de múltiples colecciones
 
 ## Despliegue en Render
 
@@ -151,7 +151,7 @@ make docker-compose-up
 │   │   ├── priorities.py
 │   │   ├── suggestions.py
 │   │   ├── airtable.py
-│   │   └── sofia.py
+│   │   └── external.py
 │   └── utils/
 │       ├── __init__.py
 │       ├── embeddings.py
@@ -165,7 +165,7 @@ make docker-compose-up
 ├── data/
 │   └── chroma/
 ├── docs/
-│   └── sofia_integration.md
+│   └── external_access.md
 ├── .env.example
 ├── .env
 ├── render.yaml

@@ -7,7 +7,11 @@ import pytest
 # Estas variables deben fijarse ANTES de importar app.main: app.config las lee
 # como constantes de módulo con os.getenv() en el momento del import, así que
 # sobreescribir os.environ después de ese punto no tiene efecto (ver CLAUDE.md).
-os.environ["SOFIA_API_KEY"] = "test_sofia_api_key"
+os.environ["QUARK_API_KEY"] = "test_quark_api_key"
+# ADMIN_PASSWORD ya no tiene default: Settings() lanza un error de validación
+# al importar app.main si falta. Debe coincidir con el valor usado en
+# test_api.py::test_token_endpoint.
+os.environ["ADMIN_PASSWORD"] = "abundancia2026"
 _TEMP_CHROMA_DIR = tempfile.mkdtemp(prefix="quark_test_chroma_")
 os.environ["CHROMA_DB_DIR"] = _TEMP_CHROMA_DIR
 
@@ -42,7 +46,7 @@ def auth_headers(auth_token):
 @pytest.fixture
 def api_key_headers():
     """Encabezados con API Key para pruebas."""
-    return {"X-API-Key": "test_sofia_api_key"}
+    return {"X-API-Key": "test_quark_api_key"}
 
 @pytest.fixture
 def test_item():
@@ -60,7 +64,7 @@ def test_item():
 @pytest.fixture
 def created_test_item(client, api_key_headers, test_item):
     """Crea un item de prueba y lo devuelve."""
-    response = client.post("/sofia/store", headers=api_key_headers, json=test_item)
+    response = client.post("/external/store", headers=api_key_headers, json=test_item)
     if response.status_code != 201:
         pytest.fail(f"Error al crear item de prueba: {response.text}")
     return response.json()

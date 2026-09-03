@@ -4,7 +4,7 @@ Este documento proporciona una visión general de la API de QUARK.
 
 ## Descripción General
 
-QUARK es una API desarrollada con FastAPI que utiliza ChromaDB como base de datos vectorial para almacenar y recuperar información mediante búsquedas semánticas. Está diseñada para actuar como una memoria estructurada para SofIA y otros servicios.
+QUARK es una API desarrollada con FastAPI que utiliza ChromaDB como base de datos vectorial para almacenar y recuperar información mediante búsquedas semánticas. Está diseñada para actuar como una memoria estructurada para aplicaciones externas y otros servicios.
 
 ## Estructura de la API
 
@@ -34,8 +34,8 @@ QUARK es una API desarrollada con FastAPI que utiliza ChromaDB como base de dato
 8. **Integración con Airtable** (`/airtable`)
    - Sincroniza datos con Airtable para su visualización y gestión externa.
 
-9. **Integración con SofIA** (`/sofia`)
-   - API específica para la integración con SofIA, incluyendo operaciones especializadas.
+9. **Acceso externo a QUARK** (`/external`)
+   - API específica para el acceso de aplicaciones externas a QUARK, incluyendo operaciones especializadas.
 
 ### Endpoints Comunes
 
@@ -56,15 +56,15 @@ Además, hay endpoints específicos para ciertas operaciones:
 - **GET /check-auth** - Verifica la autenticación del usuario
 - **GET /check-write-permission** - Verifica permisos de escritura
 
-El módulo SofIA tiene endpoints adicionales:
+El módulo de acceso externo tiene endpoints adicionales:
 
-- **POST /sofia/query** - Consultas semánticas
-- **POST /sofia/store** - Almacenamiento de datos
-- **PUT /sofia/update/{collection}/{id}** - Actualización de datos
-- **DELETE /sofia/delete/{collection}/{id}** - Eliminación de datos
-- **GET /sofia/collections** - Lista las colecciones disponibles
-- **POST /sofia/batch** - Operaciones por lotes
-- **POST /sofia/consolidate** - Consolidación de datos de múltiples colecciones
+- **POST /external/query** - Consultas semánticas
+- **POST /external/store** - Almacenamiento de datos
+- **PUT /external/update/{collection}/{id}** - Actualización de datos
+- **DELETE /external/delete/{collection}/{id}** - Eliminación de datos
+- **GET /external/collections** - Lista las colecciones disponibles
+- **POST /external/batch** - Operaciones por lotes
+- **POST /external/consolidate** - Consolidación de datos de múltiples colecciones
 
 ## Autenticación
 
@@ -75,7 +75,7 @@ La API soporta dos métodos de autenticación:
    Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
    ```
 
-2. **API Key** - Para integraciones entre servicios (como SofIA)
+2. **API Key** - Para integraciones entre servicios (aplicaciones externas)
    ```
    X-API-Key: your_api_key_here
    ```
@@ -101,9 +101,9 @@ Para ejemplos detallados de cada método (GET, POST, PUT, DELETE), consulte los 
 - [Método PUT](./methods/PUT.md)
 - [Método DELETE](./methods/DELETE.md)
 
-Para ejemplos específicos de integración con SofIA, consulte:
+Para ejemplos específicos de acceso externo a QUARK, consulte:
 
-- [Integración con SofIA](./sofia_integration.md)
+- [Acceso externo a QUARK](./external_access.md)
 
 ## Esquema de Datos
 

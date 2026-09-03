@@ -1,21 +1,21 @@
 {
   "openapi": "3.0.0",
   "info": {
-    "title": "API de SofÍA - POST",
+    "title": "API de acceso externo - POST",
     "version": "1.0.0",
-    "description": "API para el aprendizaje, registro y adaptación de SofÍA en tiempo real."
+    "description": "API para el aprendizaje, registro y adaptación del cliente externo en tiempo real."
   },
   "servers": [
     {
       "url": "https://api.quark.ai/v1",
-      "description": "Servidor principal de SofÍA"
+      "description": "Servidor principal de acceso externo"
     }
   ],
   "paths": {
-    "/sofia": {
+    "/external": {
       "post": {
-        "summary": "Actualizar información y aprendizaje de SofÍA",
-        "operationId": "updateSofiaData",
+        "summary": "Actualizar información y aprendizaje del cliente externo",
+        "operationId": "updateExternalData",
         "requestBody": {
           "required": true,
           "content": {
@@ -79,20 +79,20 @@
                   },
                   "interacciones": {
                     "type": "array",
-                    "description": "Registro de interacciones con SofÍA.",
+                    "description": "Registro de interacciones con el cliente externo.",
                     "items": {
                       "type": "object",
                       "properties": {
                         "tipo": { "type": "string" },
                         "mensaje": { "type": "string" },
-                        "respuesta_sofia": { "type": "string" },
+                        "respuesta_externa": { "type": "string" },
                         "impacto": { "type": "string" }
                       }
                     }
                   },
                   "feedback_usuario": {
                     "type": "object",
-                    "description": "Registro de comentarios del usuario sobre SofÍA.",
+                    "description": "Registro de comentarios del usuario sobre el cliente externo.",
                     "properties": {
                       "aspecto_a_mejorar": { "type": "string" },
                       "sugerencia": { "type": "string" },
@@ -105,7 +105,7 @@
                     "properties": {
                       "procrastinacion_detectada": {
                         "type": "boolean",
-                        "description": "Si SofÍA detecta que postergas tareas recurrentemente."
+                        "description": "Si el sistema detecta que postergas tareas recurrentemente."
                       },
                       "accion_preventiva": {
                         "type": "string",
@@ -132,7 +132,7 @@
                   },
                   "automatizacion": {
                     "type": "object",
-                    "description": "Acciones que SofÍA puede automatizar según patrones detectados.",
+                    "description": "Acciones que el sistema puede automatizar según patrones detectados.",
                     "properties": {
                       "reprogramar_tarea": { "type": "boolean" },
                       "tarea_id": { "type": "string" },
@@ -147,7 +147,7 @@
         },
         "responses": {
           "200": {
-            "description": "Datos procesados correctamente por SofÍA.",
+            "description": "Datos procesados correctamente por el cliente externo.",
             "content": {
               "application/json": {
                 "schema": {

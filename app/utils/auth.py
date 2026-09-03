@@ -7,7 +7,7 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel
 
-from app.config import AUTH_SECRET_KEY, AUTH_ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, SOFIA_API_KEY
+from app.config import AUTH_SECRET_KEY, AUTH_ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, QUARK_API_KEY
 
 # Esquemas
 class Token(BaseModel):
@@ -99,9 +99,9 @@ async def get_api_key(api_key: Optional[str] = Depends(api_key_header)) -> Optio
     if api_key is None:
         return None
 
-    # Comprobar si es la API Key de SofIA
-    if api_key == SOFIA_API_KEY:
-        return {"client": "sofia", "scopes": ["read", "write"]}
+    # Comprobar si es la API Key de acceso externo
+    if api_key == QUARK_API_KEY:
+        return {"client": "quark_api", "scopes": ["read", "write"]}
 
     return None
 

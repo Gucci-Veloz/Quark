@@ -26,7 +26,7 @@ GET /
     {"name": "Priorización y Filtrado", "endpoint": "/prioridad"},
     {"name": "Sugerencias Inteligentes", "endpoint": "/sugerencias"},
     {"name": "Integración con Airtable", "endpoint": "/airtable"},
-    {"name": "Integración con SofIA", "endpoint": "/sofia"}
+    {"name": "Acceso externo a QUARK", "endpoint": "/external"}
   ]
 }
 ```
@@ -159,12 +159,12 @@ GET /identity/search?query=objetivos&n_results=5&category=general
 }
 ```
 
-## Módulo SofIA
+## Módulo de acceso externo
 
 ### Listar colecciones
 
 ```http
-GET /sofia/collections
+GET /external/collections
 ```
 
 **Encabezados**

@@ -39,12 +39,12 @@ PUT /identity/{item_id}
 }
 ```
 
-## Módulo SofIA
+## Módulo de acceso externo
 
 ### Actualizar información
 
 ```http
-PUT /sofia/update/{collection_key}/{item_id}
+PUT /external/update/{collection_key}/{item_id}
 ```
 
 **Encabezados**
@@ -77,7 +77,7 @@ X-API-Key: {api_key}
     "due_date": "2023-04-30",
     "created_at": "2023-03-15T10:30:00Z",
     "updated_at": "2023-03-15T11:45:00Z",
-    "last_update_source": "sofia"
+    "last_update_source": "quark_api"
   }
 }
 ```

@@ -1,13 +1,13 @@
-# Integración de SofIA con QUARK
+# Acceso externo a QUARK
 
-Este documento proporciona ejemplos y guías sobre cómo integrar SofIA con la API de QUARK.
+Este documento proporciona ejemplos y guías sobre cómo integrar aplicaciones externas con la API de QUARK.
 
 ## Autenticación
 
-Para todas las peticiones a la API, SofIA debe proporcionar una clave API en el encabezado HTTP:
+Para todas las peticiones a la API, el cliente debe proporcionar una clave API en el encabezado HTTP:
 
 ```
-X-API-Key: your_sofia_api_key_here
+X-API-Key: your_quark_api_key_here
 ```
 
 ## Ejemplos de Peticiones
@@ -19,11 +19,11 @@ Para buscar información semántica:
 ```javascript
 // Ejemplo para GPT Actions
 const query = {
-  url: 'https://quark-api.onrender.com/sofia/query',
+  url: 'https://quark-api.onrender.com/external/query',
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
-    'X-API-Key': process.env.SOFIA_API_KEY
+    'X-API-Key': process.env.QUARK_API_KEY
   },
   body: JSON.stringify({
     text: "¿Cuáles son mis objetivos principales para este mes?",
@@ -41,11 +41,11 @@ Para guardar nueva información:
 
 ```javascript
 const storeData = {
-  url: 'https://quark-api.onrender.com/sofia/store',
+  url: 'https://quark-api.onrender.com/external/store',
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
-    'X-API-Key': process.env.SOFIA_API_KEY
+    'X-API-Key': process.env.QUARK_API_KEY
   },
   body: JSON.stringify({
     text: "Mi objetivo principal para abril es completar el proyecto X y aprender tecnología Y",
@@ -67,11 +67,11 @@ Para actualizar información existente:
 
 ```javascript
 const updateData = {
-  url: 'https://quark-api.onrender.com/sofia/update/identity/123e4567-e89b-12d3-a456-426614174000',
+  url: 'https://quark-api.onrender.com/external/update/identity/123e4567-e89b-12d3-a456-426614174000',
   method: 'PUT',
   headers: {
     'Content-Type': 'application/json',
-    'X-API-Key': process.env.SOFIA_API_KEY
+    'X-API-Key': process.env.QUARK_API_KEY
   },
   body: JSON.stringify({
     text: "Texto actualizado con más detalles",
@@ -89,10 +89,10 @@ Para eliminar información:
 
 ```javascript
 const deleteData = {
-  url: 'https://quark-api.onrender.com/sofia/delete/identity/123e4567-e89b-12d3-a456-426614174000',
+  url: 'https://quark-api.onrender.com/external/delete/identity/123e4567-e89b-12d3-a456-426614174000',
   method: 'DELETE',
   headers: {
-    'X-API-Key': process.env.SOFIA_API_KEY
+    'X-API-Key': process.env.QUARK_API_KEY
   }
 };
 ```
@@ -103,11 +103,11 @@ Para realizar múltiples operaciones en una sola llamada:
 
 ```javascript
 const batchOperations = {
-  url: 'https://quark-api.onrender.com/sofia/batch',
+  url: 'https://quark-api.onrender.com/external/batch',
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
-    'X-API-Key': process.env.SOFIA_API_KEY
+    'X-API-Key': process.env.QUARK_API_KEY
   },
   body: JSON.stringify({
     operations: [
@@ -148,11 +148,11 @@ Para obtener información consolidada de múltiples colecciones:
 
 ```javascript
 const consolidateRequest = {
-  url: 'https://quark-api.onrender.com/sofia/consolidate',
+  url: 'https://quark-api.onrender.com/external/consolidate',
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
-    'X-API-Key': process.env.SOFIA_API_KEY
+    'X-API-Key': process.env.QUARK_API_KEY
   },
   body: JSON.stringify({
     query: "estrategias de productividad",
@@ -192,11 +192,11 @@ Para mantener consistencia, se recomienda usar estos campos en los metadatos:
 ```javascript
 // Almacenar objetivo
 const storeGoal = {
-  url: 'https://quark-api.onrender.com/sofia/store',
+  url: 'https://quark-api.onrender.com/external/store',
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
-    'X-API-Key': process.env.SOFIA_API_KEY
+    'X-API-Key': process.env.QUARK_API_KEY
   },
   body: JSON.stringify({
     text: "Objetivo: Aprender programación funcional en JavaScript",
@@ -215,11 +215,11 @@ const storeGoal = {
 
 // Consultar progreso
 const queryGoals = {
-  url: 'https://quark-api.onrender.com/sofia/query',
+  url: 'https://quark-api.onrender.com/external/query',
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
-    'X-API-Key': process.env.SOFIA_API_KEY
+    'X-API-Key': process.env.QUARK_API_KEY
   },
   body: JSON.stringify({
     text: "objetivos aprendizaje programación",
@@ -235,11 +235,11 @@ const queryGoals = {
 
 ```javascript
 const storeLearning = {
-  url: 'https://quark-api.onrender.com/sofia/store',
+  url: 'https://quark-api.onrender.com/external/store',
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
-    'X-API-Key': process.env.SOFIA_API_KEY
+    'X-API-Key': process.env.QUARK_API_KEY
   },
   body: JSON.stringify({
     text: "He aprendido que las arrow functions en JavaScript no tienen su propio contexto 'this'",
@@ -255,4 +255,4 @@ const storeLearning = {
     }
   })
 };
-``` 
+```

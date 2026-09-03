@@ -10,18 +10,18 @@ from app.utils.logger import logger
 from app.models.schemas import Item, ItemList, QueryResult
 
 router = APIRouter(
-    prefix="/sofia",
-    tags=["sofia"],
+    prefix="/external",
+    tags=["external"],
     responses={404: {"description": "No encontrado"}},
     dependencies=[Depends(validate_access)]  # Proteger todas las rutas con autenticación
 )
 
 @router.post("/query", response_model=QueryResult)
 async def query_data(
-    query: Dict[str, Any] = Body(..., description="Consulta de SofIA"),
+    query: Dict[str, Any] = Body(..., description="Consulta del cliente externo"),
 ):
     """
-    Endpoint para consultas semánticas desde SofIA.
+    Endpoint para consultas semánticas desde aplicaciones externas.
     """
     try:
         # Validar la consulta
@@ -55,7 +55,7 @@ async def query_data(
                 "metadata": results["metadatas"][0][i] if results["metadatas"] else {}
             })
         
-        logger.info("Consulta de SofIA procesada", {
+        logger.info("Consulta externa procesada", {
             "collection": collection_key,
             "query": query["text"],
             "results_count": len(items)
@@ -68,7 +68,7 @@ async def query_data(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error en consulta de SofIA: {str(e)}", {"query": query})
+        logger.error(f"Error en consulta externa: {str(e)}", {"query": query})
         raise HTTPException(status_code=500, detail=f"Error al procesar consulta: {str(e)}")
 
 @router.post("/store", response_model=Item, status_code=201)
@@ -76,7 +76,7 @@ async def store_data(
     data: Dict[str, Any] = Body(..., description="Datos a almacenar"),
 ):
     """
-    Endpoint para almacenar datos desde SofIA.
+    Endpoint para almacenar datos desde aplicaciones externas.
     """
     try:
         # Validar los datos
@@ -100,8 +100,8 @@ async def store_data(
         if "created_at" not in metadata:
             metadata["created_at"] = datetime.now().isoformat()
         metadata["updated_at"] = datetime.now().isoformat()
-        metadata["source"] = "sofia"
-        
+        metadata["external_source"] = "quark_api"
+
         # Almacenar los datos
         result = db_manager.add_item(
             collection_key=collection_key,
@@ -110,7 +110,7 @@ async def store_data(
             metadata=metadata
         )
         
-        logger.info("Datos de SofIA almacenados", {
+        logger.info("Datos externos almacenados", {
             "collection": collection_key,
             "item_id": item_id
         })
@@ -119,7 +119,7 @@ async def store_data(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error al almacenar datos de SofIA: {str(e)}", {"data": data})
+        logger.error(f"Error al almacenar datos externos: {str(e)}", {"data": data})
         raise HTTPException(status_code=500, detail=f"Error al almacenar datos: {str(e)}")
 
 @router.put("/update/{collection_key}/{item_id}", response_model=Item)
@@ -129,7 +129,7 @@ async def update_data(
     data: Dict[str, Any] = Body(..., description="Datos actualizados"),
 ):
     """
-    Endpoint para actualizar datos desde SofIA.
+    Endpoint para actualizar datos desde aplicaciones externas.
     """
     try:
         # Validar que la colección existe
@@ -156,7 +156,7 @@ async def update_data(
             metadata = existing_item["metadata"].copy()
             metadata.update(data["metadata"])
             metadata["updated_at"] = datetime.now().isoformat()
-            metadata["last_update_source"] = "sofia"
+            metadata["last_update_source"] = "quark_api"
         
         # Actualizar el item
         result = db_manager.update_item(
@@ -166,7 +166,7 @@ async def update_data(
             metadata=metadata
         )
         
-        logger.info("Datos de SofIA actualizados", {
+        logger.info("Datos externos actualizados", {
             "collection": collection_key,
             "item_id": item_id
         })
@@ -175,7 +175,7 @@ async def update_data(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error al actualizar datos de SofIA: {str(e)}", {
+        logger.error(f"Error al actualizar datos externos: {str(e)}", {
             "collection_key": collection_key,
             "item_id": item_id,
             "data": data
@@ -188,7 +188,7 @@ async def delete_data(
     item_id: str = Path(..., description="ID del item a eliminar"),
 ):
     """
-    Endpoint para eliminar datos desde SofIA.
+    Endpoint para eliminar datos desde aplicaciones externas.
     """
     try:
         # Validar que la colección existe
@@ -203,7 +203,7 @@ async def delete_data(
             id=item_id
         )
         
-        logger.info("Datos de SofIA eliminados", {
+        logger.info("Datos externos eliminados", {
             "collection": collection_key,
             "item_id": item_id
         })
@@ -212,7 +212,7 @@ async def delete_data(
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        logger.error(f"Error al eliminar datos de SofIA: {str(e)}", {
+        logger.error(f"Error al eliminar datos externos: {str(e)}", {
             "collection_key": collection_key,
             "item_id": item_id
         })
@@ -221,12 +221,12 @@ async def delete_data(
 @router.get("/collections", response_model=Dict[str, str])
 async def list_collections():
     """
-    Lista todas las colecciones disponibles para SofIA.
+    Lista todas las colecciones disponibles para el consumidor externo.
     """
     try:
         return {key: collection.name for key, collection in db_manager.collections.items()}
     except Exception as e:
-        logger.error(f"Error al listar colecciones para SofIA: {str(e)}")
+        logger.error(f"Error al listar colecciones para el consumidor externo: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error al listar colecciones: {str(e)}")
 
 @router.post("/batch", response_model=Dict[str, Any])
@@ -296,8 +296,8 @@ async def batch_operation(
                     if "created_at" not in metadata:
                         metadata["created_at"] = datetime.now().isoformat()
                     metadata["updated_at"] = datetime.now().isoformat()
-                    metadata["source"] = "sofia_batch"
-                    
+                    metadata["external_source"] = "quark_api_batch"
+
                     store_result = db_manager.add_item(
                         collection_key=collection_key,
                         id=item_id,
@@ -338,7 +338,7 @@ async def batch_operation(
                         metadata = existing_item["metadata"].copy()
                         metadata.update(op["metadata"])
                         metadata["updated_at"] = datetime.now().isoformat()
-                        metadata["last_update_source"] = "sofia_batch"
+                        metadata["last_update_source"] = "quark_api_batch"
                     
                     update_result = db_manager.update_item(
                         collection_key=collection_key,
@@ -385,7 +385,7 @@ async def batch_operation(
                     "error": str(e)
                 })
         
-        logger.info("Operación por lotes de SofIA completada", {
+        logger.info("Operación por lotes externa completada", {
             "total_operations": len(operations),
             "successful": len(results),
             "failed": len(errors)
@@ -400,7 +400,7 @@ async def batch_operation(
         }
     
     except Exception as e:
-        logger.error(f"Error en operación por lotes de SofIA: {str(e)}")
+        logger.error(f"Error en operación por lotes externa: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error en operación por lotes: {str(e)}")
 
 @router.post("/consolidate", response_model=Dict[str, Any])
@@ -448,7 +448,7 @@ async def consolidate_data(
         # Limitar al número solicitado
         consolidated_results = consolidated_results[:limit]
         
-        logger.info("Consolidación de datos para SofIA completada", {
+        logger.info("Consolidación de datos para el consumidor externo completada", {
             "query": query,
             "collections": collections,
             "results_count": len(consolidated_results)
@@ -464,5 +464,5 @@ async def consolidate_data(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error en consolidación de datos para SofIA: {str(e)}", {"request": request})
+        logger.error(f"Error en consolidación de datos para el consumidor externo: {str(e)}", {"request": request})
         raise HTTPException(status_code=500, detail=f"Error al consolidar datos: {str(e)}") 

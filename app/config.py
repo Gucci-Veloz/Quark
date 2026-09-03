@@ -24,7 +24,10 @@ class Settings(BaseSettings):
     log_level: str = Field(default="info", validation_alias="LOG_LEVEL")
     
     # Configuración de seguridad
-    admin_password: str = Field(default="sofia2023", validation_alias="ADMIN_PASSWORD")
+    # Sin default: si ADMIN_PASSWORD no está seteada en el entorno, Settings()
+    # falla al instanciarse (arranque de la app), en vez de admitir en silencio
+    # una contraseña fija conocida por cualquiera que lea el repo.
+    admin_password: str = Field(..., validation_alias="ADMIN_PASSWORD")
     auth_secret_key: str = Field(default="insecure_default_key_change_in_production", validation_alias="AUTH_SECRET_KEY")
     auth_algorithm: str = Field(default="HS256", validation_alias="AUTH_ALGORITHM")
     access_token_expire_minutes: int = Field(default=30, validation_alias="ACCESS_TOKEN_EXPIRE_MINUTES")
@@ -44,8 +47,8 @@ class Settings(BaseSettings):
     airtable_base_id: str = Field(default="", validation_alias="AIRTABLE_BASE_ID")
     airtable_table_id: str = Field(default="tbln3teMfz1sbqIuf", validation_alias="AIRTABLE_TABLE_ID")
     
-    # API Key para integración con SofIA
-    sofia_api_key: str = Field(default="", validation_alias="SOFIA_API_KEY")
+    # API Key para acceso externo a QUARK
+    quark_api_key: str = Field(default="", validation_alias="QUARK_API_KEY")
     
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -83,5 +86,5 @@ AUTH_SECRET_KEY = os.getenv("AUTH_SECRET_KEY", "insecure_default_key_change_in_p
 AUTH_ALGORITHM = os.getenv("AUTH_ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
 
-# API Key para integración con SofIA
-SOFIA_API_KEY = os.getenv("SOFIA_API_KEY")
+# API Key para acceso externo a QUARK
+QUARK_API_KEY = os.getenv("QUARK_API_KEY")

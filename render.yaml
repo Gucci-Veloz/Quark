@@ -15,13 +15,15 @@ services:
         sync: false
       - key: AIRTABLE_TABLE_ID
         value: tbln3teMfz1sbqIuf
+      - key: ADMIN_PASSWORD
+        sync: false
       - key: AUTH_SECRET_KEY
         generateValue: true
       - key: AUTH_ALGORITHM
         value: HS256
       - key: ACCESS_TOKEN_EXPIRE_MINUTES
         value: "30"
-      - key: SOFIA_API_KEY
+      - key: QUARK_API_KEY
         generateValue: true
     disk:
       name: quark-data

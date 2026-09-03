@@ -11,7 +11,7 @@ test_token = create_access_token(data={"sub": "testuser", "scopes": ["read", "wr
 test_headers = {"Authorization": f"Bearer {test_token}"}
 
 # API Key de prueba (debe coincidir con la usada en las pruebas)
-test_api_key = "test_sofia_api_key"
+test_api_key = "test_quark_api_key"
 api_key_headers = {"X-API-Key": test_api_key}
 
 # Pruebas del endpoint raíz y documentación
@@ -37,7 +37,7 @@ def test_token_endpoint(client):
     """Prueba la obtención de token."""
     response = client.post(
         "/token",
-        data={"username": "admin", "password": "sofia2023"}
+        data={"username": "admin", "password": "abundancia2026"}
     )
     assert response.status_code == 200
     data = response.json()
@@ -77,21 +77,21 @@ def test_check_write_permission(client, auth_headers):
     assert data["authorized"] == True
     assert data["scope"] == "write"
 
-# Pruebas del módulo SofIA
+# Pruebas del módulo de acceso externo
 @pytest.mark.api
-def test_sofia_collections(client, api_key_headers):
+def test_external_collections(client, api_key_headers):
     """Prueba el listado de colecciones disponibles."""
-    response = client.get("/sofia/collections", headers=api_key_headers)
+    response = client.get("/external/collections", headers=api_key_headers)
     assert response.status_code == 200
     data = response.json()
     assert isinstance(data, dict)
     assert "identity" in data
 
 @pytest.mark.api
-def test_sofia_store(client, api_key_headers, test_item):
+def test_external_store(client, api_key_headers, test_item):
     """Prueba el almacenamiento de datos."""
     response = client.post(
-        "/sofia/store",
+        "/external/store",
         headers=api_key_headers,
         json=test_item
     )
@@ -103,7 +103,7 @@ def test_sofia_store(client, api_key_headers, test_item):
     assert "metadata" in result
 
 @pytest.mark.api
-def test_sofia_query(client, api_key_headers, created_test_item):
+def test_external_query(client, api_key_headers, created_test_item):
     """Prueba la consulta de datos."""
     query_data = {
         "text": "texto de prueba",
@@ -112,7 +112,7 @@ def test_sofia_query(client, api_key_headers, created_test_item):
     }
     
     response = client.post(
-        "/sofia/query",
+        "/external/query",
         headers=api_key_headers,
         json=query_data
     )
@@ -124,7 +124,7 @@ def test_sofia_query(client, api_key_headers, created_test_item):
     assert len(result["items"]) > 0
 
 @pytest.mark.api
-def test_sofia_update(client, api_key_headers, created_test_item):
+def test_external_update(client, api_key_headers, created_test_item):
     """Prueba la actualización de datos."""
     update_data = {
         "text": "Texto actualizado para pruebas",
@@ -135,7 +135,7 @@ def test_sofia_update(client, api_key_headers, created_test_item):
     }
     
     response = client.put(
-        f"/sofia/update/identity/{created_test_item['id']}",
+        f"/external/update/identity/{created_test_item['id']}",
         headers=api_key_headers,
         json=update_data
     )
@@ -148,7 +148,7 @@ def test_sofia_update(client, api_key_headers, created_test_item):
     assert result["metadata"]["status"] == "in_progress"
 
 @pytest.mark.api
-def test_sofia_batch_operations(client, api_key_headers):
+def test_external_batch_operations(client, api_key_headers):
     """Prueba las operaciones por lotes."""
     operations = [
         {
@@ -169,7 +169,7 @@ def test_sofia_batch_operations(client, api_key_headers):
     ]
     
     response = client.post(
-        "/sofia/batch",
+        "/external/batch",
         headers=api_key_headers,
         json={"operations": operations}
     )
@@ -181,7 +181,7 @@ def test_sofia_batch_operations(client, api_key_headers):
     assert result["successful_operations"] > 0
 
 @pytest.mark.api
-def test_sofia_consolidate(client, api_key_headers, created_test_item):
+def test_external_consolidate(client, api_key_headers, created_test_item):
     """Prueba la consolidación de datos de múltiples colecciones."""
     consolidate_data = {
         "query": "texto de prueba",
@@ -190,7 +190,7 @@ def test_sofia_consolidate(client, api_key_headers, created_test_item):
     }
     
     response = client.post(
-        "/sofia/consolidate",
+        "/external/consolidate",
         headers=api_key_headers,
         json=consolidate_data
     )
@@ -203,10 +203,10 @@ def test_sofia_consolidate(client, api_key_headers, created_test_item):
     assert "total_results" in result
 
 @pytest.mark.api
-def test_sofia_delete(client, api_key_headers, created_test_item):
+def test_external_delete(client, api_key_headers, created_test_item):
     """Prueba la eliminación de datos."""
     response = client.delete(
-        f"/sofia/delete/identity/{created_test_item['id']}",
+        f"/external/delete/identity/{created_test_item['id']}",
         headers=api_key_headers
     )
     
@@ -222,7 +222,7 @@ def test_sofia_delete(client, api_key_headers, created_test_item):
     }
     
     query_response = client.post(
-        "/sofia/query",
+        "/external/query",
         headers=api_key_headers,
         json=query_data
     )
