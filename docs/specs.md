@@ -176,6 +176,24 @@ Además de la metadata obligatoria, incluyen:
 
 ### Fase 1 — Despliegue producción
 
+#### Bloque 1.0 — Endurecimiento de seguridad (obligatorio, antes de cualquier deploy)
+
+Origen: revisiones de seguridad del PR #1 (2026-11-07). Varios ítems son hallazgos de seguridad, no solo mejoras de rendimiento o despliegue. Ningún deploy a producción procede hasta cerrar este bloque.
+
+- [ ] **DoS (Media):** acotar `n_results`/`limit` con `le=100` en `/external/batch` y `/external/consolidate` (`app/modules/external.py`); tope de ~50 operaciones por batch; eliminar `list_items(limit=None)` donde no haga falta (`app/database.py`); en `/prioridad/optimizar` calcular cada embedding una sola vez en vez de por par (`app/modules/priorities.py`); quitar el `embed_passages` sin uso de `/sugerencias` (`app/modules/suggestions.py`).
+- [ ] **`.dockerignore` (Media):** excluir `.env*` (salvo `.env.example`), `data/`, `logs/`, `.git/`, `.venv/`, `*.db`, `tests/`, `.pytest_cache`, notas locales. Hoy `COPY . .` mete secretos y datos en la imagen.
+- [ ] **CORS (Media):** default sin `*`; `ALLOWED_ORIGINS` explícito en producción; `allow_credentials=False` salvo necesidad; métodos y headers explícitos (`app/config.py`, `app/main.py`).
+- [ ] **Datos sensibles en logs (Media):** `LoggingMiddleware` registra solo `request.url.path` (sin query string); no registrar el `username` de logins fallidos en claro (`app/utils/logger.py`, `app/main.py`).
+- [ ] **Login y contraseñas (Baja):** rate limit en `POST /token` (app o proxy Traefik); `min_length=12` en `ADMIN_PASSWORD` y rechazo de placeholders `your_*` en el bootstrap; `.env.example` sin valores de ejemplo usables.
+- [ ] **JWT (Baja):** `jwt.decode(..., options={"require_exp": True})`; claim `iat` e invalidación de tokens emitidos antes de un cambio de contraseña (`app/utils/auth.py`, `app/cli.py`).
+- [ ] **Errores 500 (Baja):** respuesta genérica sin `str(e)`; filtros `where` inválidos → 400; detalle solo en el log. El handler de `HTTPException` debe propagar `exc.headers` (`WWW-Authenticate`) (`app/main.py`).
+- [ ] **Umbrales de similitud E5 (Media, funcional):** recalibrar `min_similarity` y cortes de duplicados/merge (`connections.py`, `suggestions.py`, `priorities.py`), calibrados para MiniLM; con E5 casi todo supera 0.7.
+- [ ] **CI (Baja):** el workflow `Test and Deploy` está deshabilitado en GitHub (`gh workflow disable`, 2026-11-07) para que el merge no dispare el deploy obsoleto a Render. Antes de rehabilitarlo: eliminar el job `deploy` de `.github/workflows/test-and-deploy.yml` y pasar la matriz a Python 3.12 con `ADMIN_PASSWORD`, `AUTH_SECRET_KEY` y `DATABASE_URL` de test. Subir ese cambio requiere un token de `gh` con scope `workflow`.
+- [ ] **Credenciales de producción:** valores nuevos y aleatorios para `ADMIN_PASSWORD`, `AUTH_SECRET_KEY` y Postgres; nunca reutilizar defaults del historial público (p. ej. la contraseña y la secret por defecto de versiones anteriores de `app/config.py`).
+- [ ] **Menores:** validar `tenant_id` e ids de item con `^[a-z0-9_-]+$` (evita colisiones `<tenant>:<id>`); `USER` no root en el Dockerfile; `validate_access` como `def` para no bloquear el event loop; error 422 (no 404) ante `metadata` no dict en `PUT /external/update`; deshabilitar `/docs` y `/openapi.json` en producción si se decide; `pip-audit` con red.
+
+#### Bloque 1.1 — Despliegue
+
 - [ ] Dockerfile con Python 3.12 y pre-descarga del modelo en el build
 - [ ] Deploy vía Coolify desde el repo Git con docker-compose
 - [ ] DNS/dominio `quark.vutik.online` configurado en Traefik con HTTPS
