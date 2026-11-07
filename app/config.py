@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     # Sin default: si ADMIN_PASSWORD no está seteada en el entorno, Settings()
     # falla al instanciarse (arranque de la app), en vez de admitir en silencio
     # una contraseña fija conocida por cualquiera que lea el repo.
-    admin_password: str = Field(..., validation_alias="ADMIN_PASSWORD")
+    admin_password: str = Field(...)  # lee ADMIN_PASSWORD (case_sensitive=False)
     admin_username: str = Field(default="admin", validation_alias="ADMIN_USERNAME")
     auth_secret_key: str = Field(..., min_length=32, validation_alias="AUTH_SECRET_KEY")
     database_url: str = Field(..., validation_alias="DATABASE_URL")
