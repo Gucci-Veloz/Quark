@@ -92,20 +92,49 @@ class ReminderItemUpdate(ItemUpdate):
     pass
 
 # Módulo de Conexiones Inteligentes
+# Campos obligatorios en la metadata de la colección `connections` (specs.md §3.3),
+# además de tenant_id/created_at/updated_at que fija el servidor.
+CONNECTION_REQUIRED_FIELDS = ("source_id", "target_id", "relation_type", "collection_ref", "timestamp")
+
+def validate_connection_metadata(metadata: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """Valida la metadata de un documento de `connections` (specs.md §3.3).
+
+    Exige source_id, target_id, relation_type, collection_ref (clave o nombre de
+    una colección existente) y timestamp (ISO 8601). Lanza ValueError con el
+    detalle si falta o es inválido algún campo; devuelve la metadata sin cambios.
+    """
+    from app.config import COLLECTIONS
+
+    metadata = metadata or {}
+    errors = []
+    for field_name in CONNECTION_REQUIRED_FIELDS:
+        value = metadata.get(field_name)
+        if not isinstance(value, str) or not value.strip():
+            errors.append(f"'{field_name}' es obligatorio (string no vacío)")
+    if not errors:
+        if metadata["collection_ref"] not in COLLECTIONS and metadata["collection_ref"] not in COLLECTIONS.values():
+            errors.append(
+                f"'collection_ref' debe ser una colección existente: {', '.join(COLLECTIONS)}"
+            )
+        try:
+            datetime.fromisoformat(metadata["timestamp"].replace("Z", "+00:00"))
+        except ValueError:
+            errors.append("'timestamp' debe ser una fecha ISO 8601")
+    if errors:
+        raise ValueError("Metadata de 'connections' inválida: " + "; ".join(errors))
+    return metadata
+
 class ConnectionItemCreate(ItemCreate):
     """Esquema para crear un item en el módulo de Conexiones Inteligentes."""
     metadata: Dict[str, Any] = Field(
         default_factory=lambda: {
             "source_id": "",
-            "source_module": "",
             "target_id": "",
-            "target_module": "",
-            "connection_type": "semantic",
-            "strength": 0.0,
-            "created_at": datetime.now().isoformat(),
-            "updated_at": datetime.now().isoformat()
+            "relation_type": "semantic",
+            "collection_ref": "",
+            "timestamp": datetime.now().isoformat(),
         },
-        description="Metadatos de la conexión"
+        description="Metadatos de la conexión: source_id, target_id, relation_type, collection_ref y timestamp son obligatorios"
     )
 
 class ConnectionItemUpdate(ItemUpdate):
@@ -270,7 +299,61 @@ class SuccessResponse(BaseModel):
     """Esquema para representar una respuesta exitosa."""
     message: str = Field(..., description="Mensaje de éxito")
 
+# Esquemas del módulo /external
+class ExternalStoreRequest(BaseModel):
+    """Cuerpo de POST /external/store."""
+    text: str = Field(..., min_length=1, description="Texto a indexar (se embebe con prefijo 'passage: ')")
+    collection: str = Field("identity", description="Clave de la colección: identity, business, reminders, connections, learnings, priorities, suggestions")
+    id: Optional[str] = Field(None, description="ID opcional; si se omite se genera un UUID. 409 si ya existe en el tenant")
+    metadata: Dict[str, Any] = Field(
+        default_factory=dict,
+        description=(
+            "Metadatos libres. tenant_id, created_at y updated_at los fija el servidor "
+            "(se ignora lo que envíe el cliente). En la colección 'connections' son obligatorios "
+            "source_id, target_id, relation_type, collection_ref y timestamp (ISO 8601)."
+        ),
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {"text": "Prefiero reuniones cortas por la mañana", "collection": "identity",
+                 "metadata": {"category": "preferencias"}},
+                {"text": "Conexión entre una meta de negocio y un aprendizaje", "collection": "connections",
+                 "metadata": {"source_id": "id-origen", "target_id": "id-destino",
+                              "relation_type": "semantic", "collection_ref": "learnings",
+                              "timestamp": "2026-11-07T12:00:00+00:00"}},
+            ]
+        }
+    }
+
+class ExternalQueryRequest(BaseModel):
+    """Cuerpo de POST /external/query."""
+    text: str = Field(..., min_length=1, description="Texto de la consulta (se embebe con prefijo 'query: ')")
+    collection: str = Field("identity", description="Clave de la colección")
+    n_results: int = Field(5, ge=1, le=100, description="Número de resultados")
+    filter: Optional[Dict[str, Any]] = Field(None, description="Filtro `where` de ChromaDB sobre metadata; el filtro por tenant lo añade el servidor")
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [{"text": "¿cómo prefiere trabajar?", "collection": "identity", "n_results": 3}]
+        }
+    }
+
 # Función para generar IDs únicos
 def generate_id() -> str:
     """Genera un ID único para los items."""
     return str(uuid.uuid4()) 
+# --- profile ---
+class ProfileCreate(BaseModel):
+    """Hecho/preferencia de largo plazo (tabla profiles)."""
+    key: str = Field(..., min_length=1, max_length=255, description="Clave del hecho o preferencia")
+    value: str = Field(..., description="Valor")
+
+class ProfileUpdate(BaseModel):
+    value: str = Field(..., description="Nuevo valor")
+
+class ProfileOut(BaseModel):
+    key: str
+    value: str
+    updated_at: datetime

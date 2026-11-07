@@ -1,14 +1,14 @@
 from fastapi import APIRouter, HTTPException, Query, Path, Depends, Body
 from typing import List, Dict, Optional, Any
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.database import db_manager
+from app.utils.auth import Principal, require_scope
 from app.models.schemas import (
     Item, ConnectionItemCreate, ConnectionItemUpdate, 
     ConnectionAnalysisRequest, ConnectionAnalysisResult,
-    ItemList, QueryResult, generate_id
+    ItemList, QueryResult, generate_id, validate_connection_metadata
 )
-from app.utils.embeddings import get_embedding_model
 
 router = APIRouter(
     prefix="/conexiones",
@@ -19,7 +19,7 @@ router = APIRouter(
 COLLECTION_KEY = "connections"
 
 @router.post("/analizar", response_model=ConnectionAnalysisResult)
-async def analyze_connections(request: ConnectionAnalysisRequest):
+async def analyze_connections(request: ConnectionAnalysisRequest, principal: Principal = Depends(require_scope("write"))):
     """
     Analiza y detecta relaciones entre un item específico y otros datos almacenados.
     
@@ -38,7 +38,8 @@ async def analyze_connections(request: ConnectionAnalysisRequest):
         # Obtener el item de origen
         source_item = db_manager.get_item(
             collection_key=request.module,
-            id=request.item_id
+            id=request.item_id,
+            tenant_id=principal.tenant_id
         )
         
         if not source_item:
@@ -56,7 +57,8 @@ async def analyze_connections(request: ConnectionAnalysisRequest):
             results = db_manager.query_items(
                 collection_key=module,
                 query_text=source_item["text"],
-                n_results=request.max_connections
+                n_results=request.max_connections,
+                tenant_id=principal.tenant_id
             )
             
             # Procesar los resultados
@@ -73,30 +75,34 @@ async def analyze_connections(request: ConnectionAnalysisRequest):
                         connection_id = generate_id()
                         connection_text = f"Conexión entre '{source_item['text'][:50]}...' y '{results['documents'][0][i][:50]}...'"
                         
+                        now = datetime.now(timezone.utc).isoformat()
+                        # Campos de specs.md §3.3; tenant_id/created_at/updated_at los fija db_manager
                         connection_metadata = {
                             "source_id": request.item_id,
-                            "source_module": request.module,
                             "target_id": results["ids"][0][i],
+                            "relation_type": "semantic",
+                            "collection_ref": module,
+                            "timestamp": now,
+                            "source_module": request.module,
                             "target_module": module,
-                            "connection_type": "semantic",
                             "strength": similarity,
-                            "created_at": datetime.now().isoformat(),
-                            "updated_at": datetime.now().isoformat()
                         }
+                        validate_connection_metadata(connection_metadata)
                         
                         # Guardar la conexión en la base de datos
-                        db_manager.add_item(
+                        saved = db_manager.add_item(
                             collection_key=COLLECTION_KEY,
                             id=connection_id,
                             text=connection_text,
-                            metadata=connection_metadata
+                            metadata=connection_metadata,
+                            tenant_id=principal.tenant_id
                         )
                         
                         # Añadir a la lista de conexiones
                         connections.append({
                             "id": connection_id,
                             "text": connection_text,
-                            "metadata": connection_metadata
+                            "metadata": saved["metadata"]
                         })
         
         # Retornar el resultado
@@ -117,14 +123,15 @@ async def list_connections(
     offset: int = Query(0, ge=0, description="Número de conexiones a saltar"),
     source_module: Optional[str] = Query(None, description="Filtrar por módulo de origen"),
     target_module: Optional[str] = Query(None, description="Filtrar por módulo de destino"),
-    min_strength: float = Query(0.0, ge=0.0, le=1.0, description="Fuerza mínima de la conexión")
+    min_strength: float = Query(0.0, ge=0.0, le=1.0, description="Fuerza mínima de la conexión"),
+    principal: Principal = Depends(require_scope("read"))
 ):
     """
     Lista todas las conexiones detectadas.
     """
     try:
         # Obtener todas las conexiones
-        all_items = db_manager.list_items(collection_key=COLLECTION_KEY)
+        all_items = db_manager.list_items(collection_key=COLLECTION_KEY, limit=None, tenant_id=principal.tenant_id)
         
         # Aplicar filtros si se proporcionan
         filtered_items = all_items
@@ -157,7 +164,8 @@ async def search_connections(
     n_results: int = Query(5, ge=1, le=100, description="Número de resultados a retornar"),
     source_module: Optional[str] = Query(None, description="Filtrar por módulo de origen"),
     target_module: Optional[str] = Query(None, description="Filtrar por módulo de destino"),
-    min_strength: float = Query(0.0, ge=0.0, le=1.0, description="Fuerza mínima de la conexión")
+    min_strength: float = Query(0.0, ge=0.0, le=1.0, description="Fuerza mínima de la conexión"),
+    principal: Principal = Depends(require_scope("read"))
 ):
     """
     Busca conexiones por similitud semántica.
@@ -183,7 +191,8 @@ async def search_connections(
             collection_key=COLLECTION_KEY,
             query_text=query,
             n_results=n_results,
-            filter=filter_dict
+            filter=filter_dict,
+            tenant_id=principal.tenant_id
         )
         
         # Construir la respuesta
@@ -204,7 +213,8 @@ async def search_connections(
 
 @router.get("/{connection_id}", response_model=Item)
 async def get_connection(
-    connection_id: str = Path(..., description="ID de la conexión a obtener")
+    connection_id: str = Path(..., description="ID de la conexión a obtener"),
+    principal: Principal = Depends(require_scope("read"))
 ):
     """
     Obtiene una conexión específica.
@@ -212,7 +222,8 @@ async def get_connection(
     try:
         item = db_manager.get_item(
             collection_key=COLLECTION_KEY,
-            id=connection_id
+            id=connection_id,
+            tenant_id=principal.tenant_id
         )
         
         if not item:
@@ -226,7 +237,8 @@ async def get_connection(
 
 @router.delete("/{connection_id}")
 async def delete_connection(
-    connection_id: str = Path(..., description="ID de la conexión a eliminar")
+    connection_id: str = Path(..., description="ID de la conexión a eliminar"),
+    principal: Principal = Depends(require_scope("write"))
 ):
     """
     Elimina una conexión.
@@ -234,7 +246,8 @@ async def delete_connection(
     try:
         result = db_manager.delete_item(
             collection_key=COLLECTION_KEY,
-            id=connection_id
+            id=connection_id,
+            tenant_id=principal.tenant_id
         )
         
         return result

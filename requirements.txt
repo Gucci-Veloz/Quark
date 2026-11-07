@@ -7,9 +7,10 @@ chromadb==1.5.9
 sentence-transformers==6.0.0
 transformers==5.15.1
 torch==2.13.0
-pyairtable==3.4.2
 python-multipart==0.0.32
 python-jose[cryptography]==3.5.0
+sqlalchemy==2.1.8
+alembic==1.20.1
 passlib[bcrypt]==1.7.4
 # passlib 1.7.4 (sin releases desde 2020) rompe con bcrypt>=4.1 (elimino
 # __about__.__version__). Fijar bcrypt<4.1 hasta migrar fuera de passlib.

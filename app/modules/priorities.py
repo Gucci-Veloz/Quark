@@ -4,13 +4,14 @@ from datetime import datetime
 from collections import defaultdict
 
 from app.database import db_manager
+from app.utils.auth import Principal, require_scope
 from app.models.schemas import (
     Item, PriorityItemCreate, PriorityItemUpdate,
     PriorityReviewRequest, PriorityAdjustRequest, PriorityOptimizeRequest,
     PriorityReviewResult, PriorityOptimizeResult,
     ItemList, QueryResult, generate_id
 )
-from app.utils.embeddings import get_embedding_model
+from app.utils.embeddings import cosine_similarity, embed_passages
 
 router = APIRouter(
     prefix="/prioridad",
@@ -21,7 +22,7 @@ router = APIRouter(
 COLLECTION_KEY = "priorities"
 
 @router.post("/revisar", response_model=PriorityReviewResult)
-async def review_priorities(request: PriorityReviewRequest):
+async def review_priorities(request: PriorityReviewRequest, principal: Principal = Depends(require_scope("write"))):
     """
     Analiza los datos y sugiere qué priorizar o limpiar.
     
@@ -50,7 +51,7 @@ async def review_priorities(request: PriorityReviewRequest):
         # Revisar cada módulo
         for module in modules_to_review:
             # Obtener todos los items del módulo
-            items = db_manager.list_items(collection_key=module)
+            items = db_manager.list_items(collection_key=module, limit=None, tenant_id=principal.tenant_id)
             total_items_reviewed += len(items)
             
             # Limitar el número de items si es necesario
@@ -66,12 +67,8 @@ async def review_priorities(request: PriorityReviewRequest):
                             continue
                         
                         # Comparar textos usando el modelo de embeddings
-                        embedding_model = get_embedding_model()
-                        embedding1 = embedding_model.encode(item1["text"])
-                        embedding2 = embedding_model.encode(item2["text"])
-                        
-                        # Calcular similitud coseno
-                        similarity = embedding_model.util.cos_sim(embedding1, embedding2).item()
+                        # Calcular similitud coseno (embeddings E5 con prefijo passage)
+                        similarity = cosine_similarity(item1["text"], item2["text"])
                         
                         # Si la similitud supera el umbral, registrar como posible duplicado
                         if similarity >= request.min_similarity:
@@ -106,7 +103,7 @@ async def review_priorities(request: PriorityReviewRequest):
                 # Por ahora, usaremos una lógica simple basada en la longitud del texto
                 for item in items:
                     # Verificar si ya existe un registro de prioridad para este item
-                    priority_records = db_manager.list_items(collection_key=COLLECTION_KEY)
+                    priority_records = db_manager.list_items(collection_key=COLLECTION_KEY, limit=None, tenant_id=principal.tenant_id)
                     priority_record = next((p for p in priority_records if p["metadata"].get("item_id") == item["id"] and p["metadata"].get("module") == module), None)
                     
                     # Calcular una puntuación de relevancia simple
@@ -157,7 +154,7 @@ async def review_priorities(request: PriorityReviewRequest):
         raise HTTPException(status_code=500, detail=f"Error al revisar prioridades: {str(e)}")
 
 @router.post("/ajustar", response_model=Item)
-async def adjust_priority(request: PriorityAdjustRequest):
+async def adjust_priority(request: PriorityAdjustRequest, principal: Principal = Depends(require_scope("write"))):
     """
     Permite modificar manualmente la prioridad de un elemento.
     """
@@ -175,14 +172,15 @@ async def adjust_priority(request: PriorityAdjustRequest):
         # Verificar que el item existe
         item = db_manager.get_item(
             collection_key=request.module,
-            id=request.item_id
+            id=request.item_id,
+            tenant_id=principal.tenant_id
         )
         
         if not item:
             raise HTTPException(status_code=404, detail=f"Item con ID '{request.item_id}' no encontrado en el módulo '{request.module}'")
         
         # Buscar si ya existe un registro de prioridad para este item
-        priority_records = db_manager.list_items(collection_key=COLLECTION_KEY)
+        priority_records = db_manager.list_items(collection_key=COLLECTION_KEY, limit=None, tenant_id=principal.tenant_id)
         priority_record = next((p for p in priority_records if p["metadata"].get("item_id") == request.item_id and p["metadata"].get("module") == request.module), None)
         
         if priority_record:
@@ -201,7 +199,8 @@ async def adjust_priority(request: PriorityAdjustRequest):
                 collection_key=COLLECTION_KEY,
                 id=priority_id,
                 text=f"Prioridad para item '{item['text'][:50]}...' en módulo '{request.module}'",
-                metadata=updated_metadata
+                metadata=updated_metadata,
+                tenant_id=principal.tenant_id
             )
             
             return updated_record
@@ -228,7 +227,8 @@ async def adjust_priority(request: PriorityAdjustRequest):
                 collection_key=COLLECTION_KEY,
                 id=priority_id,
                 text=f"Prioridad para item '{item['text'][:50]}...' en módulo '{request.module}'",
-                metadata=metadata
+                metadata=metadata,
+                tenant_id=principal.tenant_id
             )
             
             return {
@@ -242,7 +242,7 @@ async def adjust_priority(request: PriorityAdjustRequest):
         raise HTTPException(status_code=500, detail=f"Error al ajustar la prioridad: {str(e)}")
 
 @router.post("/optimizar", response_model=PriorityOptimizeResult)
-async def optimize_priorities(request: PriorityOptimizeRequest):
+async def optimize_priorities(request: PriorityOptimizeRequest, principal: Principal = Depends(require_scope("write"))):
     """
     Reorganiza automáticamente la información según su importancia.
     """
@@ -271,7 +271,7 @@ async def optimize_priorities(request: PriorityOptimizeRequest):
             include_duplicates=True
         )
         
-        review_result = await review_priorities(review_request)
+        review_result = await review_priorities(review_request, principal)
         
         # Procesar duplicados si se solicita
         if request.auto_merge_duplicates:
@@ -296,7 +296,8 @@ async def optimize_priorities(request: PriorityOptimizeRequest):
                 # Obtener el item principal
                 primary_item = db_manager.get_item(
                     collection_key=module,
-                    id=primary_id
+                    id=primary_id,
+                    tenant_id=principal.tenant_id
                 )
                 
                 if not primary_item:
@@ -310,7 +311,8 @@ async def optimize_priorities(request: PriorityOptimizeRequest):
                     # Obtener el item duplicado
                     duplicate_item = db_manager.get_item(
                         collection_key=duplicate_module,
-                        id=duplicate_id
+                        id=duplicate_id,
+                        tenant_id=principal.tenant_id
                     )
                     
                     if not duplicate_item:
@@ -331,7 +333,7 @@ async def optimize_priorities(request: PriorityOptimizeRequest):
                     })
                     
                     # Actualizar el registro de prioridad del duplicado
-                    priority_records = db_manager.list_items(collection_key=COLLECTION_KEY)
+                    priority_records = db_manager.list_items(collection_key=COLLECTION_KEY, limit=None, tenant_id=principal.tenant_id)
                     priority_record = next((p for p in priority_records if p["metadata"].get("item_id") == duplicate_id and p["metadata"].get("module") == duplicate_module), None)
                     
                     if priority_record:
@@ -344,7 +346,8 @@ async def optimize_priorities(request: PriorityOptimizeRequest):
                         db_manager.update_item(
                             collection_key=COLLECTION_KEY,
                             id=priority_record["id"],
-                            metadata=updated_metadata
+                            metadata=updated_metadata,
+                            tenant_id=principal.tenant_id
                         )
                     
                     total_items_optimized += 1
@@ -359,7 +362,8 @@ async def optimize_priorities(request: PriorityOptimizeRequest):
                     # Obtener el item
                     low_relevance_item = db_manager.get_item(
                         collection_key=module,
-                        id=item_id
+                        id=item_id,
+                        tenant_id=principal.tenant_id
                     )
                     
                     if not low_relevance_item:
@@ -374,7 +378,7 @@ async def optimize_priorities(request: PriorityOptimizeRequest):
                     })
                     
                     # Actualizar el registro de prioridad
-                    priority_records = db_manager.list_items(collection_key=COLLECTION_KEY)
+                    priority_records = db_manager.list_items(collection_key=COLLECTION_KEY, limit=None, tenant_id=principal.tenant_id)
                     priority_record = next((p for p in priority_records if p["metadata"].get("item_id") == item_id and p["metadata"].get("module") == module), None)
                     
                     if priority_record:
@@ -386,7 +390,8 @@ async def optimize_priorities(request: PriorityOptimizeRequest):
                         db_manager.update_item(
                             collection_key=COLLECTION_KEY,
                             id=priority_record["id"],
-                            metadata=updated_metadata
+                            metadata=updated_metadata,
+                            tenant_id=principal.tenant_id
                         )
                     else:
                         # Crear un nuevo registro de prioridad
@@ -409,7 +414,8 @@ async def optimize_priorities(request: PriorityOptimizeRequest):
                             collection_key=COLLECTION_KEY,
                             id=priority_id,
                             text=f"Prioridad para item '{low_relevance_item['text'][:50]}...' en módulo '{module}'",
-                            metadata=metadata
+                            metadata=metadata,
+                            tenant_id=principal.tenant_id
                         )
                     
                     total_items_optimized += 1
@@ -417,11 +423,11 @@ async def optimize_priorities(request: PriorityOptimizeRequest):
         # Repriorizar items basados en su uso y relevancia
         for module in modules_to_optimize:
             # Obtener todos los items del módulo
-            items = db_manager.list_items(collection_key=module)
+            items = db_manager.list_items(collection_key=module, limit=None, tenant_id=principal.tenant_id)
             
             for item in items:
                 # Verificar si ya existe un registro de prioridad
-                priority_records = db_manager.list_items(collection_key=COLLECTION_KEY)
+                priority_records = db_manager.list_items(collection_key=COLLECTION_KEY, limit=None, tenant_id=principal.tenant_id)
                 priority_record = next((p for p in priority_records if p["metadata"].get("item_id") == item["id"] and p["metadata"].get("module") == module), None)
                 
                 if priority_record:
@@ -446,7 +452,8 @@ async def optimize_priorities(request: PriorityOptimizeRequest):
                         db_manager.update_item(
                             collection_key=COLLECTION_KEY,
                             id=priority_record["id"],
-                            metadata=updated_metadata
+                            metadata=updated_metadata,
+                            tenant_id=principal.tenant_id
                         )
                         
                         reprioritized_items.append({
@@ -477,14 +484,15 @@ async def list_priorities(
     offset: int = Query(0, ge=0, description="Número de items a saltar"),
     module: Optional[str] = Query(None, description="Filtrar por módulo"),
     priority_level: Optional[str] = Query(None, description="Filtrar por nivel de prioridad"),
-    is_duplicate: Optional[bool] = Query(None, description="Filtrar por estado de duplicado")
+    is_duplicate: Optional[bool] = Query(None, description="Filtrar por estado de duplicado"),
+    principal: Principal = Depends(require_scope("read"))
 ):
     """
     Lista todos los registros de prioridad.
     """
     try:
         # Obtener todos los registros
-        all_items = db_manager.list_items(collection_key=COLLECTION_KEY)
+        all_items = db_manager.list_items(collection_key=COLLECTION_KEY, limit=None, tenant_id=principal.tenant_id)
         
         # Aplicar filtros si se proporcionan
         filtered_items = all_items
@@ -513,7 +521,8 @@ async def list_priorities(
 
 @router.get("/{priority_id}", response_model=Item)
 async def get_priority(
-    priority_id: str = Path(..., description="ID del registro de prioridad a obtener")
+    priority_id: str = Path(..., description="ID del registro de prioridad a obtener"),
+    principal: Principal = Depends(require_scope("read"))
 ):
     """
     Obtiene un registro de prioridad específico.
@@ -521,7 +530,8 @@ async def get_priority(
     try:
         item = db_manager.get_item(
             collection_key=COLLECTION_KEY,
-            id=priority_id
+            id=priority_id,
+            tenant_id=principal.tenant_id
         )
         
         if not item:
@@ -535,7 +545,8 @@ async def get_priority(
 
 @router.delete("/{priority_id}")
 async def delete_priority(
-    priority_id: str = Path(..., description="ID del registro de prioridad a eliminar")
+    priority_id: str = Path(..., description="ID del registro de prioridad a eliminar"),
+    principal: Principal = Depends(require_scope("write"))
 ):
     """
     Elimina un registro de prioridad.
@@ -543,7 +554,8 @@ async def delete_priority(
     try:
         result = db_manager.delete_item(
             collection_key=COLLECTION_KEY,
-            id=priority_id
+            id=priority_id,
+            tenant_id=principal.tenant_id
         )
         
         return result

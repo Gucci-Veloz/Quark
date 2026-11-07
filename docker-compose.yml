@@ -1,13 +1,15 @@
-version: '3'
-
 services:
   quark:
     build: .
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8020:8000"
     volumes:
       - ./data:/app/data
     environment:
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - AUTH_SECRET_KEY=${AUTH_SECRET_KEY}
+      - DATABASE_URL=${DATABASE_URL}
       - CHROMA_DB_DIR=/app/data/chroma
-      - EMBEDDING_MODEL=all-MiniLM-L6-v2
+      - EMBEDDING_MODEL=intfloat/multilingual-e5-base
     restart: unless-stopped

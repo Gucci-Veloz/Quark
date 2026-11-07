@@ -3,6 +3,7 @@ from typing import List, Dict, Optional, Any
 from datetime import datetime
 
 from app.database import db_manager
+from app.utils.auth import Principal, require_scope
 from app.models.schemas import (
     Item, ReminderItemCreate, ReminderItemUpdate, 
     ItemList, QueryResult, generate_id
@@ -17,7 +18,7 @@ router = APIRouter(
 COLLECTION_KEY = "reminders"
 
 @router.post("/", response_model=Item, status_code=201)
-async def create_reminder_item(item: ReminderItemCreate):
+async def create_reminder_item(item: ReminderItemCreate, principal: Principal = Depends(require_scope("write"))):
     """
     Crea un nuevo recordatorio o URL en el módulo de Recordatorios y URLs.
     """
@@ -28,7 +29,8 @@ async def create_reminder_item(item: ReminderItemCreate):
             collection_key=COLLECTION_KEY,
             id=item_id,
             text=item.text,
-            metadata=item.metadata
+            metadata=item.metadata,
+            tenant_id=principal.tenant_id
         )
         
         return {
@@ -45,14 +47,15 @@ async def list_reminder_items(
     offset: int = Query(0, ge=0, description="Número de items a saltar"),
     type: Optional[str] = Query(None, description="Filtrar por tipo (reminder, url)"),
     priority: Optional[str] = Query(None, description="Filtrar por prioridad"),
-    status: Optional[str] = Query(None, description="Filtrar por estado")
+    status: Optional[str] = Query(None, description="Filtrar por estado"),
+    principal: Principal = Depends(require_scope("read"))
 ):
     """
     Lista todos los recordatorios y URLs.
     """
     try:
         # Obtener todos los items
-        all_items = db_manager.list_items(collection_key=COLLECTION_KEY)
+        all_items = db_manager.list_items(collection_key=COLLECTION_KEY, limit=None, tenant_id=principal.tenant_id)
         
         # Aplicar filtros si se proporcionan
         filtered_items = all_items
@@ -85,7 +88,8 @@ async def search_reminder_items(
     n_results: int = Query(5, ge=1, le=100, description="Número de resultados a retornar"),
     type: Optional[str] = Query(None, description="Filtrar por tipo (reminder, url)"),
     priority: Optional[str] = Query(None, description="Filtrar por prioridad"),
-    status: Optional[str] = Query(None, description="Filtrar por estado")
+    status: Optional[str] = Query(None, description="Filtrar por estado"),
+    principal: Principal = Depends(require_scope("read"))
 ):
     """
     Busca recordatorios y URLs por similitud semántica.
@@ -111,7 +115,8 @@ async def search_reminder_items(
             collection_key=COLLECTION_KEY,
             query_text=query,
             n_results=n_results,
-            filter=filter_dict
+            filter=filter_dict,
+            tenant_id=principal.tenant_id
         )
         
         # Construir la respuesta
@@ -132,7 +137,8 @@ async def search_reminder_items(
 
 @router.get("/{item_id}", response_model=Item)
 async def get_reminder_item(
-    item_id: str = Path(..., description="ID del recordatorio a obtener")
+    item_id: str = Path(..., description="ID del recordatorio a obtener"),
+    principal: Principal = Depends(require_scope("read"))
 ):
     """
     Obtiene un recordatorio o URL específico.
@@ -140,7 +146,8 @@ async def get_reminder_item(
     try:
         item = db_manager.get_item(
             collection_key=COLLECTION_KEY,
-            id=item_id
+            id=item_id,
+            tenant_id=principal.tenant_id
         )
         
         if not item:
@@ -155,7 +162,8 @@ async def get_reminder_item(
 @router.put("/{item_id}", response_model=Item)
 async def update_reminder_item(
     item_id: str = Path(..., description="ID del recordatorio a actualizar"),
-    item_update: ReminderItemUpdate = Depends()
+    item_update: ReminderItemUpdate = Depends(),
+    principal: Principal = Depends(require_scope("write"))
 ):
     """
     Actualiza un recordatorio o URL existente.
@@ -164,7 +172,8 @@ async def update_reminder_item(
         # Verificar que el item existe
         existing_item = db_manager.get_item(
             collection_key=COLLECTION_KEY,
-            id=item_id
+            id=item_id,
+            tenant_id=principal.tenant_id
         )
         
         if not existing_item:
@@ -182,7 +191,8 @@ async def update_reminder_item(
             collection_key=COLLECTION_KEY,
             id=item_id,
             text=item_update.text,
-            metadata=metadata
+            metadata=metadata,
+            tenant_id=principal.tenant_id
         )
         
         return updated_item
@@ -193,7 +203,8 @@ async def update_reminder_item(
 
 @router.delete("/{item_id}")
 async def delete_reminder_item(
-    item_id: str = Path(..., description="ID del recordatorio a eliminar")
+    item_id: str = Path(..., description="ID del recordatorio a eliminar"),
+    principal: Principal = Depends(require_scope("write"))
 ):
     """
     Elimina un recordatorio o URL.
@@ -201,7 +212,8 @@ async def delete_reminder_item(
     try:
         result = db_manager.delete_item(
             collection_key=COLLECTION_KEY,
-            id=item_id
+            id=item_id,
+            tenant_id=principal.tenant_id
         )
         
         return result
