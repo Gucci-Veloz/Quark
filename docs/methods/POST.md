@@ -12,7 +12,7 @@ POST /token
 
 **Cuerpo de la petición**
 ```
-username=usuario&password=abundancia2026
+username=admin&password=<tu_ADMIN_PASSWORD>
 ```
 
 **Respuesta**

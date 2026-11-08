@@ -27,8 +27,10 @@ class Settings(BaseSettings):
     # Sin default: si ADMIN_PASSWORD no está seteada en el entorno, Settings()
     # falla al instanciarse (arranque de la app), en vez de admitir en silencio
     # una contraseña fija conocida por cualquiera que lea el repo.
-    admin_password: str = Field(..., validation_alias="ADMIN_PASSWORD")
-    auth_secret_key: str = Field(default="insecure_default_key_change_in_production", validation_alias="AUTH_SECRET_KEY")
+    admin_password: str = Field(...)  # lee ADMIN_PASSWORD (case_sensitive=False)
+    admin_username: str = Field(default="admin", validation_alias="ADMIN_USERNAME")
+    auth_secret_key: str = Field(..., min_length=32, validation_alias="AUTH_SECRET_KEY")
+    database_url: str = Field(..., validation_alias="DATABASE_URL")
     auth_algorithm: str = Field(default="HS256", validation_alias="AUTH_ALGORITHM")
     access_token_expire_minutes: int = Field(default=30, validation_alias="ACCESS_TOKEN_EXPIRE_MINUTES")
     
@@ -40,19 +42,12 @@ class Settings(BaseSettings):
     
     # Configuración de ChromaDB
     chroma_db_dir: str = Field(default=str(BASE_DIR / "data" / "chroma"), validation_alias="CHROMA_DB_DIR")
-    embedding_model: str = Field(default="all-MiniLM-L6-v2", validation_alias="EMBEDDING_MODEL")
-    
-    # Configuración de Airtable
-    airtable_api_key: str = Field(default="", validation_alias="AIRTABLE_API_KEY")
-    airtable_base_id: str = Field(default="", validation_alias="AIRTABLE_BASE_ID")
-    airtable_table_id: str = Field(default="tbln3teMfz1sbqIuf", validation_alias="AIRTABLE_TABLE_ID")
-    
-    # API Key para acceso externo a QUARK
-    quark_api_key: str = Field(default="", validation_alias="QUARK_API_KEY")
+    embedding_model: str = Field(default="intfloat/multilingual-e5-base", validation_alias="EMBEDDING_MODEL")
     
     model_config = SettingsConfigDict(
         env_file=".env",
         case_sensitive=False,
+        extra="ignore",
     )
 
 # Función para obtener la configuración
@@ -63,7 +58,7 @@ def get_settings():
 CHROMA_DB_DIR = os.getenv("CHROMA_DB_DIR", str(BASE_DIR / "data" / "chroma"))
 
 # Configuración de embeddings
-EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "intfloat/multilingual-e5-base")
 
 # Nombres de las colecciones en ChromaDB
 COLLECTIONS = {
@@ -76,15 +71,10 @@ COLLECTIONS = {
     "suggestions": "smart_suggestions"
 } 
 
-# Configuración de Airtable
-AIRTABLE_API_KEY = os.getenv("AIRTABLE_API_KEY")
-AIRTABLE_BASE_ID = os.getenv("AIRTABLE_BASE_ID")
-AIRTABLE_TABLE_ID = os.getenv("AIRTABLE_TABLE_ID", "tbln3teMfz1sbqIuf")
-
 # Configuración de seguridad
-AUTH_SECRET_KEY = os.getenv("AUTH_SECRET_KEY", "insecure_default_key_change_in_production")
+# Sin default: Settings() (arranque de la app) exige AUTH_SECRET_KEY y DATABASE_URL.
+AUTH_SECRET_KEY = os.getenv("AUTH_SECRET_KEY", "")
+DATABASE_URL = os.getenv("DATABASE_URL", "")
 AUTH_ALGORITHM = os.getenv("AUTH_ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
 
-# API Key para acceso externo a QUARK
-QUARK_API_KEY = os.getenv("QUARK_API_KEY")

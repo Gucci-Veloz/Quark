@@ -37,6 +37,22 @@ except FileNotFoundError:
     except Exception as e:
         print(f"No se pudo crear el archivo de log: {e}")
 
+_SENSITIVE_HEADERS = {"x-api-key", "authorization", "cookie", "set-cookie", "proxy-authorization"}
+_SENSITIVE_MARKERS = ("token", "secret", "key", "password")
+
+
+def redact_headers(headers) -> Dict[str, str]:
+    """Copia de los headers con los valores sensibles reemplazados por [REDACTED]."""
+    out = {}
+    for name, value in dict(headers).items():
+        low = name.lower()
+        if low in _SENSITIVE_HEADERS or any(m in low for m in _SENSITIVE_MARKERS):
+            out[name] = "[REDACTED]"
+        else:
+            out[name] = value
+    return out
+
+
 class CustomJSONEncoder(json.JSONEncoder):
     """
     Encoder personalizado para manejar tipos no serializables por defecto.
@@ -123,7 +139,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
                 "client_ip": client_host,
                 "method": method,
                 "url": url,
-                "headers": dict(request.headers)
+                "headers": redact_headers(request.headers)
             }
         )
         

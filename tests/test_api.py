@@ -1,19 +1,4 @@
 import pytest
-from fastapi.testclient import TestClient
-from app.main import app
-from app.utils.auth import create_access_token
-
-# Cliente de prueba
-client = TestClient(app)
-
-# Token de prueba
-test_token = create_access_token(data={"sub": "testuser", "scopes": ["read", "write"]})
-test_headers = {"Authorization": f"Bearer {test_token}"}
-
-# API Key de prueba (debe coincidir con la usada en las pruebas)
-test_api_key = "test_quark_api_key"
-api_key_headers = {"X-API-Key": test_api_key}
-
 # Pruebas del endpoint raíz y documentación
 @pytest.mark.api
 def test_root(client):
@@ -33,11 +18,11 @@ def test_docs(client):
 
 # Pruebas de autenticación
 @pytest.mark.auth
-def test_token_endpoint(client):
+def test_token_endpoint(client, admin_credentials):
     """Prueba la obtención de token."""
     response = client.post(
         "/token",
-        data={"username": "admin", "password": "abundancia2026"}
+        data=admin_credentials
     )
     assert response.status_code == 200
     data = response.json()
@@ -46,11 +31,11 @@ def test_token_endpoint(client):
     assert data["token_type"] == "bearer"
 
 @pytest.mark.auth
-def test_token_endpoint_invalid_password(client):
+def test_token_endpoint_invalid_password(client, admin_credentials):
     """Prueba la obtención de token con contraseña inválida."""
     response = client.post(
         "/token",
-        data={"username": "admin", "password": "wrong_password"}
+        data={"username": admin_credentials["username"], "password": "wrong_password"}
     )
     assert response.status_code == 401
 

@@ -1,4 +1,4 @@
-.PHONY: help install dev-install test lint run docker-build docker-run clean
+.PHONY: help install dev-install test lint run migrate bootstrap docker-build docker-run clean
 
 help:
 	@echo "Comandos disponibles:"
@@ -7,6 +7,8 @@ help:
 	@echo "  make test           - Ejecuta los tests"
 	@echo "  make lint           - Ejecuta el linter"
 	@echo "  make run            - Ejecuta la aplicación en modo desarrollo"
+	@echo "  make migrate        - Aplica las migraciones SQL (alembic upgrade head)"
+	@echo "  make bootstrap      - Crea el admin inicial y la primera API key (idempotente)"
 	@echo "  make docker-build   - Construye la imagen Docker"
 	@echo "  make docker-run     - Ejecuta la aplicación en Docker"
 	@echo "  make clean          - Limpia archivos temporales"
@@ -36,6 +38,12 @@ format:
 
 run:
 	uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+migrate:
+	alembic upgrade head
+
+bootstrap:
+	python -m app.cli bootstrap
 
 docker-build:
 	docker build -t quark:latest .

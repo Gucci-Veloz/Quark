@@ -4,12 +4,13 @@ from datetime import datetime
 from collections import Counter, defaultdict
 
 from app.database import db_manager
+from app.utils.auth import Principal, require_scope
 from app.models.schemas import (
     Item, SuggestionItemCreate, SuggestionItemUpdate,
     SuggestionRequest, SuggestionAnalysisRequest, SuggestionResult,
     ItemList, QueryResult, generate_id
 )
-from app.utils.embeddings import get_embedding_model
+from app.utils.embeddings import cosine_similarity, embed_passages
 
 router = APIRouter(
     prefix="/sugerencias",
@@ -20,7 +21,7 @@ router = APIRouter(
 COLLECTION_KEY = "suggestions"
 
 @router.post("/obtener", response_model=SuggestionResult)
-async def get_suggestions(request: SuggestionRequest):
+async def get_suggestions(request: SuggestionRequest, principal: Principal = Depends(require_scope("write"))):
     """
     Genera sugerencias en función de los datos almacenados.
     
@@ -55,7 +56,7 @@ async def get_suggestions(request: SuggestionRequest):
         # Recopilar datos de todos los módulos
         all_data = {}
         for module in modules_to_analyze:
-            all_data[module] = db_manager.list_items(collection_key=module)
+            all_data[module] = db_manager.list_items(collection_key=module, limit=None, tenant_id=principal.tenant_id)
         
         # Análisis 1: Identificar temas frecuentes
         all_texts = []
@@ -64,8 +65,7 @@ async def get_suggestions(request: SuggestionRequest):
         
         # Usar el modelo de embeddings para agrupar textos similares
         if all_texts:
-            embedding_model = get_embedding_model()
-            embeddings = embedding_model.encode(all_texts)
+            embeddings = embed_passages(all_texts)
             
             # Agrupar textos similares (implementación simplificada)
             clusters = defaultdict(list)
@@ -111,7 +111,8 @@ async def get_suggestions(request: SuggestionRequest):
                         collection_key=COLLECTION_KEY,
                         id=suggestion_id,
                         text=suggestion_text,
-                        metadata=metadata
+                        metadata=metadata,
+                        tenant_id=principal.tenant_id
                     )
                     
                     suggestions.append({
@@ -129,7 +130,7 @@ async def get_suggestions(request: SuggestionRequest):
             for module, items in all_data.items():
                 for item in items:
                     # Verificar si tiene registro de prioridad
-                    priority_records = db_manager.list_items(collection_key="priorities")
+                    priority_records = db_manager.list_items(collection_key="priorities", limit=None, tenant_id=principal.tenant_id)
                     priority_record = next((p for p in priority_records if p["metadata"].get("item_id") == item["id"] and p["metadata"].get("module") == module), None)
                     
                     if priority_record:
@@ -171,7 +172,8 @@ async def get_suggestions(request: SuggestionRequest):
                         collection_key=COLLECTION_KEY,
                         id=suggestion_id,
                         text=suggestion_text,
-                        metadata=metadata
+                        metadata=metadata,
+                        tenant_id=principal.tenant_id
                     )
                     
                     suggestions.append({
@@ -203,12 +205,8 @@ async def get_suggestions(request: SuggestionRequest):
                     for item1 in items1:
                         for item2 in items2:
                             # Comparar textos usando el modelo de embeddings
-                            embedding_model = get_embedding_model()
-                            embedding1 = embedding_model.encode(item1["text"])
-                            embedding2 = embedding_model.encode(item2["text"])
-                            
-                            # Calcular similitud coseno
-                            similarity = embedding_model.util.cos_sim(embedding1, embedding2).item()
+                            # Calcular similitud coseno (embeddings E5 con prefijo passage)
+                            similarity = cosine_similarity(item1["text"], item2["text"])
                             
                             # Si la similitud supera el umbral, registrar como posible conexión
                             if similarity >= 0.7:
@@ -252,7 +250,8 @@ async def get_suggestions(request: SuggestionRequest):
                         collection_key=COLLECTION_KEY,
                         id=suggestion_id,
                         text=suggestion_text,
-                        metadata=metadata
+                        metadata=metadata,
+                        tenant_id=principal.tenant_id
                     )
                     
                     suggestions.append({
@@ -295,14 +294,15 @@ async def list_suggestions(
     offset: int = Query(0, ge=0, description="Número de sugerencias a saltar"),
     type: Optional[str] = Query(None, description="Filtrar por tipo de sugerencia"),
     is_implemented: Optional[bool] = Query(None, description="Filtrar por estado de implementación"),
-    min_relevance: float = Query(0.0, ge=0.0, le=1.0, description="Relevancia mínima")
+    min_relevance: float = Query(0.0, ge=0.0, le=1.0, description="Relevancia mínima"),
+    principal: Principal = Depends(require_scope("read"))
 ):
     """
     Muestra el historial de recomendaciones generadas.
     """
     try:
         # Obtener todas las sugerencias
-        all_items = db_manager.list_items(collection_key=COLLECTION_KEY)
+        all_items = db_manager.list_items(collection_key=COLLECTION_KEY, limit=None, tenant_id=principal.tenant_id)
         
         # Aplicar filtros si se proporcionan
         filtered_items = all_items
@@ -330,7 +330,7 @@ async def list_suggestions(
         raise HTTPException(status_code=500, detail=f"Error al listar sugerencias: {str(e)}")
 
 @router.post("/analizar", response_model=SuggestionResult)
-async def analyze_data(request: SuggestionAnalysisRequest):
+async def analyze_data(request: SuggestionAnalysisRequest, principal: Principal = Depends(require_scope("write"))):
     """
     Permite forzar un análisis de datos en cualquier momento.
     
@@ -347,7 +347,7 @@ async def analyze_data(request: SuggestionAnalysisRequest):
         )
         
         # Realizar el análisis básico
-        base_result = await get_suggestions(suggestion_request)
+        base_result = await get_suggestions(suggestion_request, principal)
         
         # Enriquecer el análisis con información adicional
         analysis_summary = base_result["analysis_summary"]
@@ -379,7 +379,8 @@ async def analyze_data(request: SuggestionAnalysisRequest):
 @router.put("/{suggestion_id}", response_model=Item)
 async def update_suggestion(
     suggestion_id: str = Path(..., description="ID de la sugerencia a actualizar"),
-    item_update: SuggestionItemUpdate = Body(...)
+    item_update: SuggestionItemUpdate = Body(...),
+    principal: Principal = Depends(require_scope("write"))
 ):
     """
     Actualiza una sugerencia existente.
@@ -388,7 +389,8 @@ async def update_suggestion(
         # Verificar que la sugerencia existe
         existing_item = db_manager.get_item(
             collection_key=COLLECTION_KEY,
-            id=suggestion_id
+            id=suggestion_id,
+            tenant_id=principal.tenant_id
         )
         
         if not existing_item:
@@ -406,7 +408,8 @@ async def update_suggestion(
             collection_key=COLLECTION_KEY,
             id=suggestion_id,
             text=item_update.text if item_update.text is not None else existing_item["text"],
-            metadata=metadata
+            metadata=metadata,
+            tenant_id=principal.tenant_id
         )
         
         return updated_item
@@ -417,7 +420,8 @@ async def update_suggestion(
 
 @router.post("/{suggestion_id}/implementar", response_model=Item)
 async def mark_as_implemented(
-    suggestion_id: str = Path(..., description="ID de la sugerencia a marcar como implementada")
+    suggestion_id: str = Path(..., description="ID de la sugerencia a marcar como implementada"),
+    principal: Principal = Depends(require_scope("write"))
 ):
     """
     Marca una sugerencia como implementada.
@@ -426,7 +430,8 @@ async def mark_as_implemented(
         # Verificar que la sugerencia existe
         existing_item = db_manager.get_item(
             collection_key=COLLECTION_KEY,
-            id=suggestion_id
+            id=suggestion_id,
+            tenant_id=principal.tenant_id
         )
         
         if not existing_item:
@@ -442,7 +447,8 @@ async def mark_as_implemented(
         updated_item = db_manager.update_item(
             collection_key=COLLECTION_KEY,
             id=suggestion_id,
-            metadata=metadata
+            metadata=metadata,
+            tenant_id=principal.tenant_id
         )
         
         return updated_item
@@ -453,7 +459,8 @@ async def mark_as_implemented(
 
 @router.get("/{suggestion_id}", response_model=Item)
 async def get_suggestion(
-    suggestion_id: str = Path(..., description="ID de la sugerencia a obtener")
+    suggestion_id: str = Path(..., description="ID de la sugerencia a obtener"),
+    principal: Principal = Depends(require_scope("read"))
 ):
     """
     Obtiene una sugerencia específica.
@@ -461,7 +468,8 @@ async def get_suggestion(
     try:
         item = db_manager.get_item(
             collection_key=COLLECTION_KEY,
-            id=suggestion_id
+            id=suggestion_id,
+            tenant_id=principal.tenant_id
         )
         
         if not item:
@@ -475,7 +483,8 @@ async def get_suggestion(
 
 @router.delete("/{suggestion_id}")
 async def delete_suggestion(
-    suggestion_id: str = Path(..., description="ID de la sugerencia a eliminar")
+    suggestion_id: str = Path(..., description="ID de la sugerencia a eliminar"),
+    principal: Principal = Depends(require_scope("write"))
 ):
     """
     Elimina una sugerencia.
@@ -483,7 +492,8 @@ async def delete_suggestion(
     try:
         result = db_manager.delete_item(
             collection_key=COLLECTION_KEY,
-            id=suggestion_id
+            id=suggestion_id,
+            tenant_id=principal.tenant_id
         )
         
         return result

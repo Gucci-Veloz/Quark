@@ -6,18 +6,20 @@ from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy.orm import Session
 
 from app.config import API_TITLE, API_DESCRIPTION, API_VERSION, get_settings
 from app.utils.logger import LoggingMiddleware, logger
 
 # Verificar importaciones de módulos
 try:
-    from app.modules import identity, business, reminders, connections, learnings, priorities, suggestions, airtable, external
+    from app.modules import identity, business, reminders, connections, learnings, priorities, suggestions, external, profile
 except ImportError as e:
     logger.critical(f"Error al importar módulos: {e}")
     sys.exit(1)
 
-from app.utils.auth import Token, create_access_token, validate_access, validate_scope, get_password_hash, verify_password
+from app.sql import get_session
+from app.utils.auth import Token, authenticate_user, create_access_token, require_scope
 
 # Crear la aplicación FastAPI
 app = FastAPI(
@@ -67,47 +69,29 @@ app.include_router(priorities.router)
 # Módulo de sugerencias inteligentes
 app.include_router(suggestions.router)
 
-# Módulo de integración con Airtable
-app.include_router(airtable.router)
-
 # Módulo de acceso externo a QUARK
 app.include_router(external.router)
 
+# Módulo de perfil (hechos y preferencias, tabla SQL)
+app.include_router(profile.router)
+
 # Endpoint para autenticación
 @app.post("/token", response_model=Token)
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
+def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), session: Session = Depends(get_session)):
     """
-    Obtiene un token de acceso JWT.
+    Obtiene un token de acceso JWT validando contra la tabla users.
     """
-    # En un sistema real, se debería verificar contra una base de datos
-    # Por ahora, comprobamos contra la contraseña almacenada en settings
-    admin_password = settings.admin_password
-    
-    if not admin_password:
-        logger.error("Contraseña de administrador no configurada.")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-            detail="Error en el servidor"
-        )
-    
-    # En un sistema real, obtendríamos el hash almacenado en la base de datos
-    # Aquí, como no tenemos base de datos, simulamos que ya tenemos el hash
-    # En producción, NUNCA deberías almacenar contraseñas en texto plano
-    if form_data.username != "admin" or form_data.password != admin_password:
+    user = authenticate_user(session, form_data.username, form_data.password)
+    if user is None:
         logger.warning("Intento de autenticación fallido", {"username": form_data.username})
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Credenciales incorrectas",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
-    # Generar token JWT
-    access_token = create_access_token(
-        data={"sub": form_data.username, "scopes": ["read", "write"]}
-    )
-    
-    logger.info("Inicio de sesión exitoso", {"username": form_data.username})
-    
+
+    access_token = create_access_token(data={"sub": user.username})
+    logger.info("Inicio de sesión exitoso", {"username": user.username})
     return {"access_token": access_token, "token_type": "bearer"}
 
 # Ruta raíz
@@ -129,32 +113,32 @@ async def root():
             {"name": "Aprendizajes y Reflexiones", "endpoint": "/learnings"},
             {"name": "Priorización y Filtrado", "endpoint": "/priorities"},
             {"name": "Sugerencias Inteligentes", "endpoint": "/suggestions"},
-            {"name": "Integración con Airtable", "endpoint": "/airtable"},
+            {"name": "Perfil", "endpoint": "/profile"},
             {"name": "Acceso externo a QUARK", "endpoint": "/external"}
         ]
     }
 
 # Endpoint protegido para verificar autenticación
 @app.get("/check-auth")
-async def check_auth(user = Depends(validate_access)):
+async def check_auth(user = Depends(require_scope("read"))):
     """
     Verifica si el usuario está autenticado correctamente.
     """
     return {
         "authenticated": True,
-        "user_info": user
+        "user_info": {"tenant_id": user.tenant_id, "scopes": list(user.scopes), "kind": user.kind, "subject": user.subject}
     }
 
 # Endpoint para verificar permisos de escritura
 @app.get("/check-write-permission")
-async def check_write_permission(user = Depends(validate_scope("write"))):
+async def check_write_permission(user = Depends(require_scope("write"))):
     """
     Verifica si el usuario tiene permisos de escritura.
     """
     return {
         "authorized": True,
         "scope": "write",
-        "user_info": user
+        "user_info": {"tenant_id": user.tenant_id, "scopes": list(user.scopes), "kind": user.kind, "subject": user.subject}
     }
 
 # Manejador de excepciones global

@@ -4,6 +4,7 @@ from datetime import datetime
 from collections import Counter
 
 from app.database import db_manager
+from app.utils.auth import Principal, require_scope
 from app.models.schemas import (
     Item, LearningItemCreate, LearningItemUpdate, 
     LearningSummaryRequest, LearningSummary,
@@ -19,7 +20,7 @@ router = APIRouter(
 COLLECTION_KEY = "learnings"
 
 @router.post("/guardar", response_model=Item, status_code=201)
-async def create_learning_item(item: LearningItemCreate):
+async def create_learning_item(item: LearningItemCreate, principal: Principal = Depends(require_scope("write"))):
     """
     Guarda un nuevo aprendizaje o reflexión.
     """
@@ -30,7 +31,8 @@ async def create_learning_item(item: LearningItemCreate):
             collection_key=COLLECTION_KEY,
             id=item_id,
             text=item.text,
-            metadata=item.metadata
+            metadata=item.metadata,
+            tenant_id=principal.tenant_id
         )
         
         return {
@@ -48,14 +50,15 @@ async def list_learning_items(
     category: Optional[str] = Query(None, description="Filtrar por categoría"),
     source: Optional[str] = Query(None, description="Filtrar por fuente"),
     importance: Optional[str] = Query(None, description="Filtrar por importancia"),
-    tag: Optional[str] = Query(None, description="Filtrar por etiqueta")
+    tag: Optional[str] = Query(None, description="Filtrar por etiqueta"),
+    principal: Principal = Depends(require_scope("read"))
 ):
     """
     Lista todos los aprendizajes almacenados.
     """
     try:
         # Obtener todos los aprendizajes
-        all_items = db_manager.list_items(collection_key=COLLECTION_KEY)
+        all_items = db_manager.list_items(collection_key=COLLECTION_KEY, limit=None, tenant_id=principal.tenant_id)
         
         # Aplicar filtros si se proporcionan
         filtered_items = all_items
@@ -92,7 +95,8 @@ async def search_learning_items(
     category: Optional[str] = Query(None, description="Filtrar por categoría"),
     source: Optional[str] = Query(None, description="Filtrar por fuente"),
     importance: Optional[str] = Query(None, description="Filtrar por importancia"),
-    tag: Optional[str] = Query(None, description="Filtrar por etiqueta")
+    tag: Optional[str] = Query(None, description="Filtrar por etiqueta"),
+    principal: Principal = Depends(require_scope("read"))
 ):
     """
     Busca aprendizajes por tema, palabra clave o categoría.
@@ -121,7 +125,8 @@ async def search_learning_items(
             collection_key=COLLECTION_KEY,
             query_text=query,
             n_results=n_results * 2,  # Obtener más resultados para filtrar por tags después
-            filter=filter_dict
+            filter=filter_dict,
+            tenant_id=principal.tenant_id
         )
         
         # Construir la respuesta
@@ -155,13 +160,13 @@ async def search_learning_items(
         raise HTTPException(status_code=500, detail=f"Error al buscar aprendizajes: {str(e)}")
 
 @router.post("/resumir", response_model=LearningSummary)
-async def summarize_learnings(request: LearningSummaryRequest):
+async def summarize_learnings(request: LearningSummaryRequest, principal: Principal = Depends(require_scope("write"))):
     """
     Genera un resumen de los aprendizajes más importantes.
     """
     try:
         # Obtener todos los aprendizajes
-        all_items = db_manager.list_items(collection_key=COLLECTION_KEY)
+        all_items = db_manager.list_items(collection_key=COLLECTION_KEY, limit=None, tenant_id=principal.tenant_id)
         
         # Aplicar filtros si se proporcionan
         filtered_items = all_items
@@ -218,7 +223,8 @@ async def summarize_learnings(request: LearningSummaryRequest):
 
 @router.get("/{learning_id}", response_model=Item)
 async def get_learning_item(
-    learning_id: str = Path(..., description="ID del aprendizaje a obtener")
+    learning_id: str = Path(..., description="ID del aprendizaje a obtener"),
+    principal: Principal = Depends(require_scope("read"))
 ):
     """
     Obtiene un aprendizaje específico.
@@ -226,7 +232,8 @@ async def get_learning_item(
     try:
         item = db_manager.get_item(
             collection_key=COLLECTION_KEY,
-            id=learning_id
+            id=learning_id,
+            tenant_id=principal.tenant_id
         )
         
         if not item:
@@ -241,7 +248,8 @@ async def get_learning_item(
 @router.put("/{learning_id}", response_model=Item)
 async def update_learning_item(
     learning_id: str = Path(..., description="ID del aprendizaje a actualizar"),
-    item_update: LearningItemUpdate = Body(...)
+    item_update: LearningItemUpdate = Body(...),
+    principal: Principal = Depends(require_scope("write"))
 ):
     """
     Actualiza un aprendizaje existente.
@@ -250,7 +258,8 @@ async def update_learning_item(
         # Verificar que el item existe
         existing_item = db_manager.get_item(
             collection_key=COLLECTION_KEY,
-            id=learning_id
+            id=learning_id,
+            tenant_id=principal.tenant_id
         )
         
         if not existing_item:
@@ -268,7 +277,8 @@ async def update_learning_item(
             collection_key=COLLECTION_KEY,
             id=learning_id,
             text=item_update.text,
-            metadata=metadata
+            metadata=metadata,
+            tenant_id=principal.tenant_id
         )
         
         return updated_item
@@ -279,7 +289,8 @@ async def update_learning_item(
 
 @router.delete("/{learning_id}")
 async def delete_learning_item(
-    learning_id: str = Path(..., description="ID del aprendizaje a eliminar")
+    learning_id: str = Path(..., description="ID del aprendizaje a eliminar"),
+    principal: Principal = Depends(require_scope("write"))
 ):
     """
     Elimina un aprendizaje.
@@ -287,7 +298,8 @@ async def delete_learning_item(
     try:
         result = db_manager.delete_item(
             collection_key=COLLECTION_KEY,
-            id=learning_id
+            id=learning_id,
+            tenant_id=principal.tenant_id
         )
         
         return result
